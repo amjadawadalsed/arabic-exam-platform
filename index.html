@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>منظومة اختبارات اللغة العربية للناطقين بغيرها</title>
+  <meta name="description" content="منصة تقييم واختبارات اللغة العربية للناطقين بغيرها - نظام مستقل للاختبارات وقياس الكفاءة اللغوية">
+  <meta property="og:title" content="منظومة اختبارات اللغة العربية للناطقين بغيرها">
+  <meta property="og:description" content="منصة تقييم واختبارات اللغة العربية للناطقين بغيرها - نظام مستقل للاختبارات وقياس الكفاءة اللغوية">
+
+  <!-- Google Arabic Fonts (Cairo & Tajawal) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- Supabase JS Client via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <link rel="stylesheet" href="/css/components.css">
+
+  <style>
+    .auth-page-wrapper {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: radial-gradient(circle at 10% 20%, rgba(5, 150, 105, 0.08) 0%, rgba(67, 56, 202, 0.05) 50%, rgba(248, 250, 252, 1) 100%);
+    }
+    .auth-hero {
+      text-align: center;
+      padding: 3.5rem 1.5rem 1.5rem;
+    }
+    .auth-brand-emblem {
+      width: 4.5rem;
+      height: 4.5rem;
+      background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+      border-radius: var(--radius-lg);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-size: 2.25rem;
+      font-weight: 800;
+      box-shadow: 0 4px 14px rgba(5, 150, 105, 0.3);
+      margin-bottom: 1.25rem;
+    }
+    .auth-card-container {
+      max-width: 460px;
+      width: 100%;
+      margin: 0 auto 3rem;
+      padding: 0 1.5rem;
+    }
+    .auth-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 2.25rem;
+      box-shadow: var(--shadow-xl);
+    }
+    .auth-card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--color-neutral-900);
+      margin-bottom: 0.5rem;
+    }
+    .auth-card-subtitle {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      margin-bottom: 1.75rem;
+    }
+    .auth-institutional-note {
+      margin-top: 1.5rem;
+      padding: 0.875rem 1rem;
+      background-color: var(--color-neutral-50);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body class="auth-page-wrapper">
+  <div class="auth-hero">
+    <div class="auth-brand-emblem">ض</div>
+    <h1 style="font-size: 1.875rem; color: var(--color-neutral-900); margin-bottom: 0.5rem;">
+      منظومة تقييم واختبارات اللغة العربية
+    </h1>
+    <p style="font-size: 1rem; color: var(--text-secondary); max-width: 540px; margin: 0 auto;">
+      المنصة المعتمدة لقياس الكفاءة اللغوية والتسكين المعياري للناطقين بغيرها
+    </p>
+    <div style="margin-top: 0.75rem;">
+      <span class="badge badge-primary">نظام مستقل</span>
+      <span class="badge badge-neutral">مصادقة Supabase الرسمية</span>
+    </div>
+  </div>
+
+  <main class="auth-card-container">
+    <div class="auth-card">
+      <h2 class="auth-card-title">تسجيل الدخول للمنظومة</h2>
+      <p class="auth-card-subtitle">أدخل بيانات الاعتماد الخاصة بحسابك الأكاديمي للمتابعة</p>
+
+      <!-- Production Login Form -->
+      <form id="login-form">
+        <div class="form-group">
+          <label class="form-label" for="login-email">البريد الإلكتروني <span class="required">*</span></label>
+          <input 
+            type="email" 
+            id="login-email" 
+            class="form-input" 
+            placeholder="user@example.com" 
+            required 
+            autocomplete="email" 
+            dir="ltr" 
+            style="text-align: left;"
+          >
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="login-password">كلمة المرور <span class="required">*</span></label>
+          <input 
+            type="password" 
+            id="login-password" 
+            class="form-input" 
+            placeholder="••••••••" 
+            required 
+            autocomplete="current-password" 
+            dir="ltr" 
+            style="text-align: left;"
+          >
+        </div>
+
+        <button type="submit" id="login-submit-btn" class="btn btn-primary btn-full btn-lg" style="margin-top: 0.75rem;">
+          <span class="btn-text">تسجيل الدخول</span>
+          <span class="spinner" style="display: none;"></span>
+        </button>
+      </form>
+
+      <div class="auth-institutional-note">
+        <strong>ملاحظة تنظيمية:</strong> يتم تزويد حسابات الطلاب والمعلمين حصرياً عبر إدارة المؤسسة التعليمية المشرفة. لا يسمح بالتسجيل الذاتي المفتوح لضمان التحقق الأكاديمي.
+      </div>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <div class="footer-content">
+      <div>منظومة اختبارات اللغة العربية للناطقين بغيرها</div>
+      <div>معايير الأمان وقواعد RLS مفعلة في قاعدة البيانات</div>
+    </div>
+  </footer>
+
+  <!-- App Script Entry -->
+  <script type="module">
+    import { login, getSession, getCurrentProfile } from '/src/js/services/auth.js';
+    import { toast } from '/src/js/components/toast.js';
+
+    const loginForm = document.getElementById('login-form');
+    const submitBtn = document.getElementById('login-submit-btn');
+    const btnText = submitBtn.querySelector('.btn-text');
+    const spinner = submitBtn.querySelector('.spinner');
+
+    // Auto-redirect if session already active
+    async function checkExistingSession() {
+      try {
+        const session = await getSession();
+        if (session) {
+          const profile = await getCurrentProfile(session.user?.id);
+          const role = profile?.role || 'student';
+          if (role === 'teacher' || role === 'admin') {
+            window.location.href = '/teacher/dashboard.html';
+          } else {
+            window.location.href = '/student/dashboard.html';
+          }
+        }
+      } catch (e) {
+        console.warn('Session check note:', e);
+      }
+    }
+    checkExistingSession();
+
+    // Handle Login Submit via Supabase Auth
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+
+      try {
+        submitBtn.disabled = true;
+        btnText.style.display = 'none';
+        spinner.style.display = 'inline-block';
+
+        const { profile } = await login(email, password);
+        toast.success(`مرحباً بك ${profile?.full_name || ''}! جاري الانتقال...`);
+
+        setTimeout(() => {
+          if (profile?.role === 'teacher' || profile?.role === 'admin') {
+            window.location.href = '/teacher/dashboard.html';
+          } else {
+            window.location.href = '/student/dashboard.html';
+          }
+        }, 500);
+      } catch (err) {
+        toast.error(err.message || 'فشل تسجيل الدخول. يرجى التحقق من صحة البيانات.');
+      } finally {
+        submitBtn.disabled = false;
+        btnText.style.display = 'inline';
+        spinner.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>

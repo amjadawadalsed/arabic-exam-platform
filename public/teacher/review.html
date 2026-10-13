@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مراجعة وتصحيح محاولة الاختبار - منظومة تقييم اللغة العربية</title>
+  <meta name="description" content="واجهة مراجعة وتصحيح الأسئلة المقالية والشفوية للمعلم">
+
+  <!-- Google Arabic Fonts (Cairo & Tajawal) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- Supabase JS Client via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <link rel="stylesheet" href="/css/components.css">
+
+  <style>
+    .review-meta-banner {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      box-shadow: var(--shadow-sm);
+    }
+    .review-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.25rem;
+      margin-top: 1rem;
+    }
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+    }
+    .meta-label {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+    .meta-value {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--color-neutral-900);
+    }
+    .review-item-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      margin-bottom: 2rem;
+      box-shadow: var(--shadow-sm);
+      transition: border-color var(--transition-fast);
+    }
+    .review-item-card.is-finalized {
+      border-right: 4px solid var(--color-primary);
+    }
+    .review-item-card.is-pending {
+      border-right: 4px solid var(--color-warning);
+    }
+    .item-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .student-answer-display {
+      background-color: var(--color-neutral-50);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      margin: 1.25rem 0;
+      font-size: 1rem;
+      line-height: 1.8;
+      color: var(--color-neutral-900);
+      white-space: pre-wrap;
+    }
+    .teacher-grading-panel {
+      background-color: #f8fafc;
+      border: 1.5px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+    }
+    .grading-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--color-neutral-900);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .finalized-lock-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.75rem;
+      background-color: var(--color-neutral-100);
+      color: var(--color-neutral-800);
+      border-radius: var(--radius-md);
+      font-size: 0.8125rem;
+      font-weight: 700;
+    }
+    .official-result-box {
+      background: linear-gradient(135deg, var(--color-primary-50), #f0fdf4);
+      border: 1.5px solid var(--color-primary-200);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+    .score-big {
+      font-size: 2.25rem;
+      font-weight: 800;
+      color: var(--color-primary);
+    }
+    .item-quick-nav {
+      position: sticky;
+      top: 1rem;
+      z-index: 20;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      box-shadow: var(--shadow-sm);
+    }
+  </style>
+</head>
+<body style="background-color: var(--color-neutral-50); min-height: 100vh;">
+
+  <!-- Navigation Bar -->
+  <header class="app-navbar">
+    <div class="navbar-container">
+      <a href="/teacher/dashboard.html" class="navbar-brand">
+        <div class="brand-emblem" style="background: linear-gradient(135deg, var(--color-secondary), #1e293b);">ض</div>
+        <div class="brand-text">
+          <span class="brand-title">منظومة تقييم اللغة العربية</span>
+          <span class="brand-subtitle">واجهة تصحيح ومراجعة المعلم</span>
+        </div>
+      </a>
+      <div class="navbar-actions">
+        <a href="/teacher/dashboard.html" class="btn btn-outline btn-sm">
+          ← العودة للوحة المعلم
+        </a>
+        <div class="user-profile-menu">
+          <div class="user-avatar" id="navbar-user-avatar">م</div>
+          <div class="user-meta">
+            <span class="user-name" id="navbar-user-name">جاري التحميل...</span>
+            <span class="user-role-label" id="navbar-user-role">معلم / مصحح</span>
+          </div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" id="navbar-logout-btn">
+          خروج
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-container" style="max-width: 1000px; margin: 2rem auto;">
+
+    <!-- Loading View -->
+    <div id="view-loading" class="empty-state" style="padding: 5rem 1.5rem;">
+      <div class="spinner" style="width: 3rem; height: 3rem; margin-bottom: 1.5rem;"></div>
+      <h3 class="empty-title">جاري تحميل بيانات محاولة الاختبار وعناصر المراجعة...</h3>
+      <p class="empty-text">يتم الآن التحقق من الصلاحيات وتفويض المؤسسة التعليمية عبر خادم Supabase.</p>
+    </div>
+
+    <!-- Error View -->
+    <div id="view-error" class="empty-state" style="display: none; padding: 4rem 1.5rem;">
+      <div class="empty-icon" style="color: var(--color-danger); background-color: var(--color-danger-bg);">⚠️</div>
+      <h3 class="empty-title" id="error-title">تعذر فتح المراجعة</h3>
+      <p class="empty-text" id="error-message">حدث خطأ أثناء تحميل بيانات الاختبار.</p>
+      <div class="mt-4">
+        <a href="/teacher/dashboard.html" class="btn btn-primary">
+          العودة إلى لوحة تحكم المعلم
+        </a>
+      </div>
+    </div>
+
+    <!-- Main Review View -->
+    <div id="view-review-content" style="display: none;">
+
+      <!-- Official Final Result Banner (Shown if attempt is officially finalized) -->
+      <div id="official-final-banner" class="official-result-box" style="display: none;">
+        <span class="badge badge-success" style="font-size: 0.9375rem; padding: 0.5rem 1rem; margin-bottom: 0.75rem;">
+          النتيجة الرسمية النهائية المعتمدة
+        </span>
+        <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--color-neutral-900); margin-top: 0.5rem;">
+          تم اعتماد وتوثيق نتيجة هذه المحاولة رسمياً في النظام
+        </h2>
+        <div class="score-big" id="official-score-display">--%</div>
+        <div style="font-size: 1rem; color: var(--text-secondary); margin-bottom: 1.25rem;" id="official-meta-details">
+          الدرجة الكلية: -- | حالة الاجتياز: -- | تحديد المستوى: --
+        </div>
+        <div class="alert alert-info" style="max-width: 650px; margin: 0 auto; text-align: right;">
+          ملاحظة: تم اكتمال كافة متطلبات التقييم والمراجعة وتم إغلاق التعديلات بشكل نهائي ومحكم.
+        </div>
+      </div>
+
+      <!-- Attempt Metadata Banner -->
+      <div class="review-meta-banner">
+        <div class="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h2 style="font-size: 1.375rem; font-weight: 800; color: var(--color-neutral-900);" id="exam-title-display">
+              عنوان الاختبار
+            </h2>
+            <div style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem;">
+              معرف المحاولة: <span class="font-mono" id="attempt-id-display">--</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="badge badge-primary" id="attempt-number-badge">محاولة #1</span>
+            <span class="badge badge-warning" id="attempt-status-badge">مكتملة (مؤقتة)</span>
+          </div>
+        </div>
+
+        <div class="review-meta-grid">
+          <div class="meta-item">
+            <span class="meta-label">اسم الطالب</span>
+            <span class="meta-value" id="student-name-display">--</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">البريد الإلكتروني للطالب</span>
+            <span class="meta-value" id="student-email-display">--</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">تاريخ التسليم</span>
+            <span class="meta-value" id="completed-at-display">--</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">الأسئلة بانتظار التقييم</span>
+            <span class="meta-value" id="pending-items-count-display">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Navigation Bar -->
+      <div class="item-quick-nav" id="item-quick-nav">
+        <span style="font-weight: 700; color: var(--color-neutral-800); margin-left: 0.5rem; font-size: 0.875rem;">
+          الانتقال السريع:
+        </span>
+        <!-- Buttons injected dynamically -->
+      </div>
+
+      <!-- Items Section -->
+      <div id="review-items-container">
+        <!-- Review item cards rendered dynamically -->
+      </div>
+    </div>
+  </main>
+
+  <!-- Finalize Item Confirmation Modal -->
+  <div class="modal-backdrop" id="finalize-confirm-modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h4 class="modal-title">تأكيد اعتماد التقييم نهائياً</h4>
+        <button type="button" class="modal-close" id="modal-finalize-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 1rem; color: var(--color-neutral-800); margin-bottom: 1rem;">
+          هل أنت متأكد من رغبتك في اعتماد درجة هذا السؤال بشكل نهائي؟
+        </p>
+        <div class="alert alert-warning">
+          <strong>تنبيه لا رجعة فيه:</strong> بموجب قواعد النظام المحكمة، بعد اعتماد التقييم نهائياً (<span class="font-mono">is_finalized = true</span>)، سيتم قفل التعديل ولن تتمكن من تعديل الدرجة أو الملاحظات لاحقاً.
+        </div>
+        <div style="margin-top: 1rem; font-size: 0.9375rem;">
+          <div>الدرجة المرصودة: <strong id="modal-score-preview">0</strong></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" id="modal-finalize-cancel">تراجع</button>
+        <button type="button" class="btn btn-primary" id="modal-finalize-confirm">نعم، اعتماد التقييم نهائياً</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <div class="footer-content">
+      <div>منظومة تقييم واختبارات اللغة العربية للناطقين بغيرها</div>
+      <div>بوابة المعلم والمصحح - صلاحيات مشروطة بقواعد RLS والتسجيل المحكم</div>
+    </div>
+  </footer>
+
+  <!-- Script Logic -->
+  <script type="module">
+    import { requireAuth } from '/src/js/services/auth.js';
+    import { initNavbar, formatDate } from '/src/js/app.js';
+    import { 
+      fetchAttemptForTeacherReview, 
+      submitTeacherReview,
+      getStudentOfficialResult,
+      getSupabase 
+    } from '/src/js/services/examApi.js';
+    import { toast } from '/src/js/components/toast.js';
+
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+    let currentAuth = null;
+    let attemptId = null;
+    let reviewData = null;
+    let pendingFinalizeItemId = null;
+    let pendingFinalizeScore = null;
+    let pendingFinalizeFeedback = null;
+
+    const viewLoading = document.getElementById('view-loading');
+    const viewError = document.getElementById('view-error');
+    const viewReviewContent = document.getElementById('view-review-content');
+    const officialFinalBanner = document.getElementById('official-final-banner');
+    const finalizeModal = document.getElementById('finalize-confirm-modal');
+
+    async function initPage() {
+      // 1. Authorize Teacher
+      try {
+        currentAuth = await requireAuth(['teacher', 'admin']);
+        if (!currentAuth) return;
+        initNavbar(currentAuth);
+      } catch (authErr) {
+        showError('فشل التحقق من هوية المعلم', authErr.message || 'يرجى تسجيل الدخول بحساب المعلم أولاً.');
+        return;
+      }
+
+      // 2. Validate URL Parameter ?attempt_id=
+      const urlParams = new URLSearchParams(window.location.search);
+      const rawAttemptId = urlParams.get('attempt_id');
+
+      if (!rawAttemptId || !rawAttemptId.trim()) {
+        showError('معرف المحاولة مفقود', 'لم يتم تحديد معرف المحاولة في عنوان الصفحة (?attempt_id=). يرجى فتح المحاولة من قائمة التصحيح المعلقة في لوحة التحكم.');
+        return;
+      }
+
+      attemptId = rawAttemptId.trim();
+      if (!UUID_REGEX.test(attemptId)) {
+        showError('معرف المحاولة غير صالح', 'صيغة معرف المحاولة المحدد في العنوان غير صحيحة (يجب أن يكون بصيغة UUID معتمدة).');
+        return;
+      }
+
+      // 3. Load Attempt Review Data
+      await loadReviewData();
+    }
+
+    async function loadReviewData() {
+      try {
+        viewLoading.style.display = 'block';
+        viewReviewContent.style.display = 'none';
+        viewError.style.display = 'none';
+
+        reviewData = await fetchAttemptForTeacherReview(attemptId);
+
+        renderAttemptMetadata();
+        await renderReviewItems();
+
+        viewLoading.style.display = 'none';
+        viewReviewContent.style.display = 'block';
+
+        // Check if already officially finalized
+        if (reviewData.attempt.final_scoring_status === 'official_final') {
+          renderOfficialResult(reviewData.attempt);
+        }
+
+      } catch (err) {
+        showError('تعذر تحميل محاولة الاختبار', err.message || 'حدث خطأ أثناء جلب تفاصيل المحاولة من الخادم.');
+      }
+    }
+
+    function renderAttemptMetadata() {
+      const { attempt, student, exam, items, reviewsMap } = reviewData;
+
+      document.getElementById('exam-title-display').textContent = exam.title || 'اختبار تقييم اللغة العربية';
+      document.getElementById('attempt-id-display').textContent = attempt.id;
+      document.getElementById('attempt-number-badge').textContent = `محاولة #${attempt.attempt_number || 1}`;
+      document.getElementById('student-name-display').textContent = student.full_name || 'طالب';
+      document.getElementById('student-email-display').textContent = student.email || '--';
+      document.getElementById('completed-at-display').textContent = formatDate(attempt.completed_at || attempt.started_at);
+
+      const statusBadge = document.getElementById('attempt-status-badge');
+      if (attempt.final_scoring_status === 'official_final') {
+        statusBadge.className = 'badge badge-success';
+        statusBadge.textContent = 'معتمدة نهائياً (Official Final)';
+      } else {
+        statusBadge.className = 'badge badge-warning';
+        statusBadge.textContent = 'مكتملة (مبدئية قيد التقييم)';
+      }
+
+      // Count reviewable pending items
+      const reviewable = items.filter(it => it.item_type === 'writing' || it.item_type === 'speaking');
+      const pendingCount = reviewable.filter(it => {
+        const rev = reviewsMap[it.id];
+        return !rev || !rev.is_finalized;
+      }).length;
+
+      document.getElementById('pending-items-count-display').textContent = `${pendingCount} من أصل ${reviewable.length}`;
+    }
+
+    async function renderReviewItems() {
+      const { attempt, items, answersMap, reviewsMap } = reviewData;
+      const isAttemptOfficiallyFinal = attempt.final_scoring_status === 'official_final';
+      const container = document.getElementById('review-items-container');
+      const navContainer = document.getElementById('item-quick-nav');
+
+      navContainer.innerHTML = '<span style="font-weight: 700; color: var(--color-neutral-800); margin-left: 0.5rem; font-size: 0.875rem;">الانتقال السريع:</span>';
+
+      const supabase = await getSupabase();
+
+      // Separate reviewable (writing/speaking) and automated items
+      const reviewableItems = items.filter(it => it.item_type === 'writing' || it.item_type === 'speaking');
+      const automatedItems = items.filter(it => it.item_type !== 'writing' && it.item_type !== 'speaking');
+
+      let html = '';
+
+      if (reviewableItems.length === 0) {
+        html += `
+          <div class="empty-state" style="padding: 3rem 1.5rem; margin-bottom: 2rem;">
+            <div class="empty-icon">📝</div>
+            <h3 class="empty-title">لا توجد أسئلة مقالية أو شفوية تتطلب تصحيح المعلم</h3>
+            <p class="empty-text">جميع أسئلة هذا الاختبار من الأنواع المؤتمتة التي تم تصحيحها آلياً بواسطة محرك التقييم.</p>
+          </div>
+        `;
+      }
+
+      for (let i = 0; i < reviewableItems.length; i++) {
+        const item = reviewableItems[i];
+        const itemNumber = i + 1;
+        const answer = answersMap[item.id] || {};
+        const review = reviewsMap[item.id] || null;
+        const isItemFinalized = isAttemptOfficiallyFinal || (review && review.is_finalized === true);
+
+        // Add Quick Nav Button
+        const navBtn = document.createElement('button');
+        navBtn.type = 'button';
+        navBtn.className = `btn btn-sm ${isItemFinalized ? 'btn-success' : 'btn-outline'}`;
+        navBtn.textContent = `س${itemNumber} (${item.item_type === 'writing' ? 'كتابة' : 'شفوي'})`;
+        navBtn.addEventListener('click', () => {
+          document.getElementById(`review_card_${item.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        navContainer.appendChild(navBtn);
+
+        // Build Student Answer Display
+        let answerHtml = '';
+        if (item.item_type === 'writing') {
+          const studentText = answer.text_response || 'لم يقم الطالب بكتابة أي نص لهذا السؤال.';
+          answerHtml = `
+            <div style="font-size: 0.875rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.5rem;">
+              نص إجابة الطالب (للقراءة فقط - محمي من التعديل):
+            </div>
+            <div class="student-answer-display">${escapeHtml(studentText)}</div>
+          `;
+        } else if (item.item_type === 'speaking') {
+          const audioPath = answer.audio_storage_path;
+          let audioPlayerHtml = '';
+
+          if (audioPath) {
+            let signedAudioUrl = null;
+            try {
+              const { data: signedData, error: signedErr } = await supabase.storage
+                .from('student-recordings')
+                .createSignedUrl(audioPath, 3600);
+              if (!signedErr && signedData?.signedUrl) {
+                signedAudioUrl = signedData.signedUrl;
+              }
+            } catch (err) {
+              console.warn('Storage signed URL error for teacher review:', err);
+            }
+
+            if (signedAudioUrl) {
+              audioPlayerHtml = `
+                <div style="margin: 1rem 0;">
+                  <audio controls src="${signedAudioUrl}" style="width: 100%; max-width: 500px; display: block;"></audio>
+                  <div style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.5rem;">
+                    المدة المسجلة: ${answer.audio_duration_seconds ? `${answer.audio_duration_seconds} ثانية` : 'غير محددة'}
+                  </div>
+                </div>
+              `;
+            } else {
+              audioPlayerHtml = `
+                <div class="alert alert-warning" style="margin: 1rem 0;">
+                  التسجيل الصوتي مسجل ومحفوظ بالمسار الآمن: <span class="font-mono">${escapeHtml(audioPath)}</span>.
+                  (تنبيه: يتطلب الاستماع المباشر في لوحة المعلم تفعيل سياسة قراءة التخزين السحابي).
+                </div>
+              `;
+            }
+          } else {
+            audioPlayerHtml = `
+              <div class="alert alert-neutral" style="margin: 1rem 0;">
+                لم يقم الطالب برفع أي تسجيل صوتي لهذا السؤال.
+              </div>
+            `;
+          }
+
+          answerHtml = `
+            <div style="font-size: 0.875rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.5rem;">
+              التسجيل الشفوي للطالب (محمي من التعديل):
+            </div>
+            ${audioPlayerHtml}
+          `;
+        }
+
+        // Assigned score and feedback values
+        const currentAssignedScore = review?.assigned_score ?? (isItemFinalized ? item.awarded_score ?? 0 : '');
+        const currentFeedback = review?.feedback_text ?? '';
+
+        html += `
+          <div class="review-item-card ${isItemFinalized ? 'is-finalized' : 'is-pending'}" id="review_card_${item.id}">
+            <div class="item-header">
+              <div class="flex items-center gap-2">
+                <span style="font-size: 1.125rem; font-weight: 800; color: var(--color-neutral-900);">
+                  السؤال رقم ${itemNumber}
+                </span>
+                <span class="badge ${item.item_type === 'writing' ? 'badge-primary' : 'badge-secondary'}">
+                  ${item.item_type === 'writing' ? 'تعبير كتابي' : 'محادثة شفوية'}
+                </span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="badge badge-neutral">الدرجة المخصصة: ${item.allocated_score}</span>
+                ${isItemFinalized ? `
+                  <span class="finalized-lock-badge">
+                    🔒 معتمد نهائياً (${currentAssignedScore} / ${item.allocated_score})
+                  </span>
+                ` : `
+                  <span class="badge badge-warning">بانتظار التقييم</span>
+                `}
+              </div>
+            </div>
+
+            <!-- Frozen Question Text -->
+            <div style="font-size: 1rem; color: var(--color-neutral-800); margin-bottom: 1.25rem; line-height: 1.7; font-weight: 600;">
+              ${escapeHtml(item.frozen_question_text)}
+            </div>
+
+            <!-- Student Answer Protected Container -->
+            ${answerHtml}
+
+            <!-- Teacher Grading Panel -->
+            <div class="teacher-grading-panel">
+              <div class="grading-title">
+                <span>رصد درجة المعلم والملاحظات الأكاديمية</span>
+                ${isItemFinalized ? '<span style="font-size: 0.8125rem; color: var(--text-muted);">(حقل مقفل للقراءة فقط)</span>' : ''}
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div class="form-group">
+                  <label class="form-label" for="score_input_${item.id}">
+                    الدرجة المستحقة <span class="required">*</span>
+                    <span style="font-weight: 400; color: var(--text-muted); font-size: 0.8125rem;">
+                      (من 0 إلى ${item.allocated_score})
+                    </span>
+                  </label>
+                  <input type="number" 
+                    id="score_input_${item.id}" 
+                    class="form-input" 
+                    min="0" 
+                    max="${item.allocated_score}" 
+                    step="0.25"
+                    value="${currentAssignedScore !== '' ? currentAssignedScore : ''}" 
+                    placeholder="أدخل الدرجة (مثال: 8.5)"
+                    ${isItemFinalized ? 'disabled' : ''}
+                  >
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="feedback_input_${item.id}">
+                    الملاحظات والتوجيه الأكاديمي للطالب
+                    <span style="font-weight: 400; color: var(--text-muted); font-size: 0.8125rem;">(اختياري)</span>
+                  </label>
+                  <textarea 
+                    id="feedback_input_${item.id}" 
+                    class="form-textarea" 
+                    rows="3" 
+                    placeholder="اكتب التقييم والملاحظات الإثرائية للطالب هنا..."
+                    maxlength="50000"
+                    ${isItemFinalized ? 'disabled' : ''}
+                  >${escapeHtml(currentFeedback)}</textarea>
+                </div>
+              </div>
+
+              ${!isItemFinalized ? `
+                <div class="flex items-center justify-between mt-3 pt-3" style="border-top: 1px dashed var(--border-subtle);">
+                  <div style="font-size: 0.8125rem; color: var(--text-muted);">
+                    حفظ المسودة يبقي المحاولة مؤقتة، بينما الاعتماد النهائي يثبت الدرجة بصورة دائمة.
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button type="button" class="btn btn-outline btn-sm btn-save-draft" data-item-id="${item.id}" data-allocated="${item.allocated_score}">
+                      حفظ كمسودة (مؤقت)
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm btn-finalize-item" data-item-id="${item.id}" data-allocated="${item.allocated_score}">
+                      ✓ اعتماد التقييم نهائياً
+                    </button>
+                  </div>
+                </div>
+              ` : `
+                <div class="alert alert-success" style="margin-top: 1rem; margin-bottom: 0;">
+                  ✓ تم اعتماد تقييم هذا السؤال نهائياً وتوثيقه في الخادم (${review?.finalized_at ? formatDate(review.finalized_at) : 'معتمد'}).
+                </div>
+              `}
+            </div>
+          </div>
+        `;
+      }
+
+      // Automated items section for teacher context
+      if (automatedItems.length > 0) {
+        html += `
+          <div style="margin-top: 3rem; margin-bottom: 1.5rem;">
+            <h3 style="font-size: 1.125rem; font-weight: 800; color: var(--color-neutral-900); margin-bottom: 0.5rem;">
+              الأسئلة المؤتمتة (تم تصحيحها آلياً بواسطة النظام)
+            </h3>
+            <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1rem;">
+              هذه الأسئلة (اختيار من متعدد / صح وخطأ / إجابة قصيرة) تم تقييمها مباشرة وفق القواعد الخوارزمية المقفلة.
+            </p>
+
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>نوع السؤال</th>
+                    <th>نص السؤال</th>
+                    <th>إجابة الطالب</th>
+                    <th>الدرجة المرصودة</th>
+                    <th>الحالة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${automatedItems.map((ai, idx) => {
+                    const ans = answersMap[ai.id] || {};
+                    const isCorrect = ai.is_correct;
+                    return `
+                      <tr>
+                        <td>${idx + 1}</td>
+                        <td><span class="badge badge-neutral">${ai.item_type}</span></td>
+                        <td style="max-width: 320px;">${escapeHtml(ai.frozen_question_text)}</td>
+                        <td><b>${escapeHtml(ans.selected_option_key || ans.text_response || 'شاغر')}</b></td>
+                        <td>${ai.awarded_score ?? 0} / ${ai.allocated_score}</td>
+                        <td>
+                          <span class="badge ${isCorrect ? 'badge-success' : 'badge-danger'}">
+                            ${isCorrect ? 'صحيحة ✓' : 'غير صحيحة ✗'}
+                          </span>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }
+
+      container.innerHTML = html;
+      attachScoringEventHandlers();
+    }
+
+    function attachScoringEventHandlers() {
+      // 1. Save as Draft (is_finalized: false)
+      document.querySelectorAll('.btn-save-draft').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const itemId = btn.dataset.itemId;
+          const allocated = parseFloat(btn.dataset.allocated);
+          const scoreInput = document.getElementById(`score_input_${itemId}`);
+          const feedbackInput = document.getElementById(`feedback_input_${itemId}`);
+
+          const scoreVal = scoreInput.value.trim();
+          if (scoreVal === '') {
+            toast.warning('يرجى تحديد الدرجة المستحقة قبل حفظ المسودة.');
+            scoreInput.focus();
+            return;
+          }
+
+          const numScore = parseFloat(scoreVal);
+          if (isNaN(numScore) || numScore < 0) {
+            toast.error('الدرجة الممنوحة يجب أن تكون قيمة رقمية غير سالبة.');
+            return;
+          }
+          if (numScore > allocated) {
+            toast.error(`الدرجة لا يمكن أن تتجاوز الدرجة المخصصة للسؤال (${allocated}).`);
+            return;
+          }
+
+          btn.disabled = true;
+          btn.textContent = 'جاري الحفظ...';
+
+          try {
+            await submitTeacherReview({
+              attemptItemId: itemId,
+              assignedScore: numScore,
+              feedbackText: feedbackInput.value.trim() || null,
+              isFinalized: false,
+            });
+
+            toast.success('تم حفظ مسودة التقييم بنجاح.');
+            await loadReviewData();
+          } catch (err) {
+            toast.error(`فشل حفظ المسودة: ${err.message}`);
+            btn.disabled = false;
+            btn.textContent = 'حفظ كمسودة (مؤقت)';
+          }
+        });
+      });
+
+      // 2. Finalize Item Review (is_finalized: true)
+      document.querySelectorAll('.btn-finalize-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const itemId = btn.dataset.itemId;
+          const allocated = parseFloat(btn.dataset.allocated);
+          const scoreInput = document.getElementById(`score_input_${itemId}`);
+          const feedbackInput = document.getElementById(`feedback_input_${itemId}`);
+
+          const scoreVal = scoreInput.value.trim();
+          if (scoreVal === '') {
+            toast.warning('يرجى تحديد الدرجة المستحقة لاعتماد التقييم.');
+            scoreInput.focus();
+            return;
+          }
+
+          const numScore = parseFloat(scoreVal);
+          if (isNaN(numScore) || numScore < 0) {
+            toast.error('الدرجة الممنوحة يجب أن تكون قيمة رقمية غير سالبة.');
+            return;
+          }
+          if (numScore > allocated) {
+            toast.error(`الدرجة لا يمكن أن تتجاوز الدرجة المخصصة للسؤال (${allocated}).`);
+            return;
+          }
+
+          pendingFinalizeItemId = itemId;
+          pendingFinalizeScore = numScore;
+          pendingFinalizeFeedback = feedbackInput.value.trim() || null;
+
+          document.getElementById('modal-score-preview').textContent = `${numScore} من أصل ${allocated} درجات`;
+          finalizeModal.classList.add('is-open');
+        });
+      });
+    }
+
+    async function executeFinalizeItem() {
+      if (!pendingFinalizeItemId) return;
+      const confirmBtn = document.getElementById('modal-finalize-confirm');
+
+      try {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'جاري الاعتماد في الخادم...';
+
+        const result = await submitTeacherReview({
+          attemptItemId: pendingFinalizeItemId,
+          assignedScore: pendingFinalizeScore,
+          feedbackText: pendingFinalizeFeedback,
+          isFinalized: true,
+        });
+
+        toast.success('تم اعتماد التقييم نهائياً وتحديث درجات المحاولة.');
+        closeFinalizeModal();
+
+        // Reload fresh attempt review data
+        await loadReviewData();
+
+      } catch (err) {
+        toast.error(`فشل اعتماد التقييم: ${err.message}`);
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'نعم، اعتماد التقييم نهائياً';
+      }
+    }
+
+    function renderOfficialResult(attempt) {
+      officialFinalBanner.style.display = 'block';
+      const score = attempt.percentage_score != null ? `${Math.round(attempt.percentage_score)}%` : '--%';
+      document.getElementById('official-score-display').textContent = score;
+
+      const isPassedText = attempt.is_passed === true ? 'ناجح ✓' : (attempt.is_passed === false ? 'لم يجتز ✗' : 'غير محدد');
+      const placementText = attempt.placement_status || 'معتمد';
+      const totalScoreText = `${attempt.total_score ?? '--'}`;
+
+      document.getElementById('official-meta-details').textContent = 
+        `الدرجة الكلية: ${totalScoreText} | حالة الاجتياز: ${isPassedText} | مستوى الكفاءة: ${placementText}`;
+    }
+
+    function closeFinalizeModal() {
+      finalizeModal.classList.remove('is-open');
+      pendingFinalizeItemId = null;
+      pendingFinalizeScore = null;
+      pendingFinalizeFeedback = null;
+      const confirmBtn = document.getElementById('modal-finalize-confirm');
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'نعم، اعتماد التقييم نهائياً';
+    }
+
+    function showError(title, message) {
+      viewLoading.style.display = 'none';
+      viewReviewContent.style.display = 'none';
+      document.getElementById('error-title').textContent = title;
+      document.getElementById('error-message').textContent = message;
+      viewError.style.display = 'block';
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Modal Listeners
+    document.getElementById('modal-finalize-close').addEventListener('click', closeFinalizeModal);
+    document.getElementById('modal-finalize-cancel').addEventListener('click', closeFinalizeModal);
+    document.getElementById('modal-finalize-confirm').addEventListener('click', executeFinalizeItem);
+
+    // Run Review Page
+    initPage();
+  </script>
+</body>
+</html>

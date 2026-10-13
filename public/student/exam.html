@@ -1,0 +1,1540 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>أداء الاختبار - منظومة اختبارات اللغة العربية</title>
+  <meta name="description" content="واجهة أداء اختبار اللغة العربية للناطقين بغيرها">
+
+  <!-- Google Arabic Fonts (Cairo & Tajawal) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- Supabase JS Client via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <link rel="stylesheet" href="/css/components.css">
+
+  <style>
+    .exam-header-bar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background-color: var(--bg-surface);
+      border-bottom: 2px solid var(--border-subtle);
+      box-shadow: var(--shadow-sm);
+      padding: 0.875rem 1.5rem;
+    }
+    .exam-header-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .timer-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1.125rem;
+      background-color: var(--color-neutral-100);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--color-neutral-900);
+      font-family: var(--font-mono);
+      direction: ltr;
+    }
+    .timer-badge.timer-warning {
+      background-color: var(--color-warning-bg);
+      border-color: var(--color-warning-border);
+      color: var(--color-warning-text);
+      animation: pulse 1.5s infinite;
+    }
+    .timer-badge.timer-danger {
+      background-color: var(--color-danger-bg);
+      border-color: var(--color-danger-border);
+      color: var(--color-danger-text);
+      animation: pulse 1s infinite;
+    }
+    .exam-main-container {
+      max-width: 1000px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+    }
+    .progress-bar-wrap {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      box-shadow: var(--shadow-sm);
+    }
+    .progress-bar-bg {
+      width: 100%;
+      height: 8px;
+      background-color: var(--color-neutral-100);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      margin-top: 0.5rem;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background-color: var(--color-primary);
+      width: 0%;
+      transition: width var(--transition-normal);
+    }
+    .question-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+      box-shadow: var(--shadow-sm);
+      transition: border-color var(--transition-fast);
+    }
+    .question-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .question-title {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--color-neutral-900);
+    }
+    .question-text {
+      font-size: 1.125rem;
+      line-height: 1.8;
+      color: var(--color-neutral-900);
+      margin-bottom: 1.75rem;
+      white-space: pre-wrap;
+    }
+    .options-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .option-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      border: 1.5px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      background-color: var(--bg-surface);
+      transition: all var(--transition-fast);
+      user-select: none;
+    }
+    .option-item:hover:not(.is-disabled) {
+      border-color: var(--color-primary-300);
+      background-color: var(--color-primary-50);
+    }
+    .option-item.selected {
+      border-color: var(--color-primary);
+      background-color: var(--color-primary-50);
+      box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.2);
+    }
+    .option-item.is-disabled {
+      cursor: not-allowed;
+      opacity: 0.75;
+    }
+    .option-item input[type="radio"] {
+      width: 1.25rem;
+      height: 1.25rem;
+      accent-color: var(--color-primary);
+      cursor: pointer;
+    }
+    .option-key-badge {
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: var(--radius-full);
+      background-color: var(--color-neutral-100);
+      color: var(--color-neutral-800);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.875rem;
+      flex-shrink: 0;
+    }
+    .option-item.selected .option-key-badge {
+      background-color: var(--color-primary);
+      color: #ffffff;
+    }
+    .save-indicator {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      color: var(--text-muted);
+      transition: color var(--transition-fast);
+    }
+    .save-indicator.saved {
+      color: var(--color-primary);
+    }
+    .save-indicator.saving {
+      color: var(--color-warning-text);
+    }
+    .save-indicator.error {
+      color: var(--color-danger-text);
+    }
+    .question-nav-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+    }
+    .nav-btn {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      background-color: var(--color-neutral-50);
+      color: var(--color-neutral-700);
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition-fast);
+      font-family: var(--font-arabic);
+    }
+    .nav-btn:hover {
+      background-color: var(--color-neutral-200);
+    }
+    .nav-btn.answered {
+      background-color: var(--color-primary-100);
+      border-color: var(--color-primary-300);
+      color: var(--color-primary-900);
+    }
+    .nav-btn.current {
+      box-shadow: 0 0 0 2px var(--color-primary);
+      border-color: var(--color-primary);
+      font-weight: 800;
+    }
+    .speaking-box {
+      background-color: var(--color-neutral-50);
+      border: 1.5px dashed var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem;
+      margin-top: 1rem;
+      text-align: center;
+    }
+    .recording-pulse-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--color-danger);
+      font-weight: 700;
+      animation: pulse 1s infinite;
+    }
+    .recording-timer {
+      font-family: var(--font-mono);
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--color-neutral-900);
+      margin: 0.75rem 0;
+      direction: ltr;
+    }
+    .result-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 3rem 2rem;
+      box-shadow: var(--shadow-md);
+      text-align: center;
+    }
+    .result-score-circle {
+      width: 120px;
+      height: 120px;
+      border-radius: var(--radius-full);
+      background: linear-gradient(135deg, var(--color-primary-50), var(--color-primary-100));
+      border: 3px solid var(--color-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 1.5rem auto;
+    }
+    .result-score-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--color-primary);
+      line-height: 1;
+    }
+    .result-score-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-top: 0.25rem;
+    }
+    .result-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      max-width: 600px;
+      margin: 2rem auto;
+      text-align: right;
+    }
+    .result-stat-box {
+      background-color: var(--color-neutral-50);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+    }
+    .result-stat-title {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+    .result-stat-data {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--color-neutral-900);
+    }
+  </style>
+</head>
+<body style="background-color: var(--color-neutral-50); min-height: 100vh;">
+
+  <!-- Sticky Exam Header -->
+  <header class="exam-header-bar" id="exam-header" style="display: none;">
+    <div class="exam-header-inner">
+      <div class="flex items-center gap-3">
+        <a href="/student/dashboard.html" class="btn btn-outline btn-sm" id="btn-back-dashboard">
+          ← لوحة التحكم
+        </a>
+        <div>
+          <span style="font-weight: 700; color: var(--color-neutral-900);" id="exam-attempt-title">اختبار اللغة العربية</span>
+          <span class="badge badge-primary" id="exam-attempt-number" style="margin-right: 0.5rem;">محاولة #1</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <!-- Display-Only Server Timer -->
+        <div class="timer-badge" id="exam-timer" title="الوقت المتبقي وفق توقيت الخادم">
+          <span id="timer-icon">⏱</span>
+          <span id="timer-display">--:--</span>
+        </div>
+
+        <button type="button" class="btn btn-success" id="btn-submit-exam">
+          تسليم الاختبار النهائي
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Loading State View -->
+  <div id="view-loading" class="exam-main-container">
+    <div class="empty-state" style="padding: 5rem 1.5rem;">
+      <div class="spinner" style="width: 3rem; height: 3rem; border-width: 3px; color: var(--color-primary); margin-bottom: 1.5rem;"></div>
+      <h3 class="empty-title">جاري تحضير وتأمين محاولة الاختبار...</h3>
+      <p class="empty-text">يتم الآن التحقق من الصلاحيات وتهيئة الأسئلة واستعادة الإجابات السابقة من الخادم.</p>
+    </div>
+  </div>
+
+  <!-- Error State View -->
+  <div id="view-error" class="exam-main-container" style="display: none;">
+    <div class="empty-state" style="padding: 4rem 1.5rem;">
+      <div class="empty-icon" style="color: var(--color-danger); background-color: var(--color-danger-bg);">⚠️</div>
+      <h3 class="empty-title" id="error-title">تعذر بدء الاختبار</h3>
+      <p class="empty-text" id="error-message">حدث خطأ أثناء محاولة فتح الاختبار.</p>
+      <div class="mt-4">
+        <a href="/student/dashboard.html" class="btn btn-primary">
+          العودة إلى لوحة تحكم الطالب
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Expired State Banner -->
+  <div id="view-expired-banner" class="exam-main-container" style="display: none; margin-bottom: 1rem;">
+    <div class="alert alert-danger" style="padding: 1.25rem;">
+      <div style="font-size: 1.25rem; font-weight: 800; margin-bottom: 0.375rem;">انتهت مدة الاختبار الرسمية</div>
+      <div>
+        لقد انتهت الصلاحية الزمنية المحددة لهذه المحاولة على خادم النظام. تم إيقاف استقبال وحفظ الإجابات والتسجيلات الجديدة حرصاً على النزاهة والامتثال الأكاديمي.
+      </div>
+      <div style="margin-top: 1rem;">
+        <button type="button" class="btn btn-danger btn-sm" id="btn-finalize-expired">
+          تسليم المحاولة المنتهية الآن
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Result State View -->
+  <div id="view-result" class="exam-main-container" style="display: none;">
+    <div class="result-card">
+      <div class="empty-icon" id="result-status-icon" style="color: var(--color-success); background-color: var(--color-success-bg);">✓</div>
+      <h2 style="font-size: 1.75rem; font-weight: 800; color: var(--color-neutral-900); margin-top: 1rem;" id="result-card-title">
+        تم تسليم الاختبار بنجاح
+      </h2>
+      <p style="font-size: 1rem; color: var(--text-secondary); max-width: 600px; margin: 0.5rem auto 1.5rem;" id="result-card-subtitle">
+        تم تسجيل وتسليم إجاباتك بنجاح في سجلات النظام الرسمية.
+      </p>
+
+      <!-- Score Circle -->
+      <div class="result-score-circle" id="result-score-circle" style="display: none;">
+        <div class="result-score-value" id="result-score-value">--%</div>
+        <div class="result-score-label">النسبة المئوية</div>
+      </div>
+
+      <!-- Result Status Badge -->
+      <div style="margin-bottom: 1.5rem;">
+        <span class="badge badge-success" id="result-status-badge" style="font-size: 0.9375rem; padding: 0.5rem 1rem;">
+          مكتمل
+        </span>
+      </div>
+
+      <!-- Result Stats Grid -->
+      <div class="result-stats-grid" id="result-stats-grid">
+        <div class="result-stat-box">
+          <div class="result-stat-title">الدرجة الإجمالية</div>
+          <div class="result-stat-data" id="stat-total-score">--</div>
+        </div>
+        <div class="result-stat-box">
+          <div class="result-stat-title">حالة النتيجة</div>
+          <div class="result-stat-data" id="stat-scoring-status">--</div>
+        </div>
+        <div class="result-stat-box">
+          <div class="result-stat-title">حالة الاجتياز</div>
+          <div class="result-stat-data" id="stat-pass-status">--</div>
+        </div>
+        <div class="result-stat-box">
+          <div class="result-stat-title">تحديد المستوى (CEFR)</div>
+          <div class="result-stat-data" id="stat-placement-status">--</div>
+        </div>
+      </div>
+
+      <!-- Result Advisory Note -->
+      <div class="alert alert-info" id="result-advisory-note" style="max-width: 600px; margin: 0 auto 2rem; text-align: right;">
+        تم تسجيل المحاولة بنجاح.
+      </div>
+
+      <div class="mt-4 flex items-center justify-center gap-3">
+        <a href="/student/result.html" class="btn btn-outline btn-lg" id="btn-view-detailed-result" style="display: none;">
+          عرض النتيجة والتقرير التفصيلي
+        </a>
+        <a href="/student/dashboard.html" class="btn btn-primary btn-lg">
+          العودة إلى لوحة تحكم الطالب
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Active Exam Runner View -->
+  <main id="view-exam-runner" class="exam-main-container" style="display: none;">
+
+    <!-- Progress Bar -->
+    <div class="progress-bar-wrap">
+      <div class="flex items-center justify-between" style="font-size: 0.875rem;">
+        <span style="font-weight: 700; color: var(--color-neutral-800);">مؤشر التقدم في الحل</span>
+        <span style="font-weight: 600; color: var(--color-primary);" id="progress-text">0 / 0 تم حله (0%)</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progress-bar-fill"></div>
+      </div>
+    </div>
+
+    <!-- Question Navigator Grid -->
+    <div class="question-nav-grid" id="question-navigator">
+      <!-- Generated dynamically -->
+    </div>
+
+    <!-- Questions Container -->
+    <div id="questions-container">
+      <!-- Question cards generated dynamically -->
+    </div>
+
+    <!-- Exam Bottom Actions -->
+    <div class="flex items-center justify-between" style="margin-top: 2rem; margin-bottom: 4rem;">
+      <button type="button" class="btn btn-outline" id="btn-scroll-top">
+        ↑ العودة للأعلى
+      </button>
+
+      <button type="button" class="btn btn-success btn-lg" id="btn-bottom-submit">
+        تسليم الاختبار النهائي
+      </button>
+    </div>
+  </main>
+
+  <!-- Confirm Submit Modal -->
+  <div class="modal-backdrop" id="submit-confirm-modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h4 class="modal-title">تأكيد تسليم الاختبار</h4>
+        <button type="button" class="modal-close" id="modal-submit-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 1rem; color: var(--color-neutral-800); margin-bottom: 1rem;">
+          هل أنت متأكد من رغبتك في تسليم الاختبار الآن؟
+        </p>
+        <div class="alert alert-warning">
+          <strong>تنبيه:</strong> بعد التسليم، لن تتمكن من تعديل أو حفظ أي إجابات أو تسجيلات إضافية وسيتم اعتماد ما تم رفعه رسمياً.
+        </div>
+        <div id="submit-unanswered-warning" style="display: none; color: var(--color-danger); font-size: 0.875rem; font-weight: 700; margin-top: 0.75rem;">
+          تنبيه: لديك أسئلة لم تقم بالإجابة عليها بعد.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" id="modal-submit-cancel">متابعة الحل</button>
+        <button type="button" class="btn btn-primary" id="modal-submit-confirm">نعم، تسليم الاختبار</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Exam Flow Module Script -->
+  <script type="module">
+    import { requireAuth } from '/src/js/services/auth.js';
+    import { 
+      startExamAttempt, 
+      saveExamAnswer, 
+      submitAndGradeExamAttempt, 
+      fetchAttemptItems, 
+      fetchAttemptAnswers,
+      fetchAttemptById,
+      uploadSpeakingRecording
+    } from '/src/js/services/examApi.js';
+    import { toast } from '/src/js/components/toast.js';
+
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const MAX_SPEAKING_DURATION_SECONDS = 120; // Maximum speaking duration: 2 minutes
+
+    let currentAuth = null;
+    let attemptId = null;
+    let examId = null;
+    let expiresAt = null;
+    let isExpired = false;
+    let isSubmitted = false;
+    let isSubmitting = false;
+    let timerInterval = null;
+    let attemptItems = [];
+    let savedAnswersMap = {}; // item_id -> { selectedOptionKey, textResponse, audioStoragePath, audioDurationSeconds }
+    let debounceTimers = {}; // item_id -> timer
+    let activeMediaRecorders = {}; // item_id -> { recorder, stream, timer, startTime }
+    let recordedBlobs = {}; // item_id -> { blob, duration }
+
+    // DOM Elements
+    const viewLoading = document.getElementById('view-loading');
+    const viewError = document.getElementById('view-error');
+    const viewExpiredBanner = document.getElementById('view-expired-banner');
+    const viewResult = document.getElementById('view-result');
+    const viewExamRunner = document.getElementById('view-exam-runner');
+    const examHeader = document.getElementById('exam-header');
+    const errorTitle = document.getElementById('error-title');
+    const errorMessage = document.getElementById('error-message');
+    const timerDisplay = document.getElementById('timer-display');
+    const timerBadge = document.getElementById('exam-timer');
+    const questionsContainer = document.getElementById('questions-container');
+    const questionNavigator = document.getElementById('question-navigator');
+    const progressBarFill = document.getElementById('progress-bar-fill');
+    const progressText = document.getElementById('progress-text');
+    const submitModal = document.getElementById('submit-confirm-modal');
+    const btnSubmitExam = document.getElementById('btn-submit-exam');
+    const btnBottomSubmit = document.getElementById('btn-bottom-submit');
+
+    async function initExam() {
+      // 1. Authenticate Student
+      try {
+        currentAuth = await requireAuth(['student', 'admin']);
+        if (!currentAuth) return;
+      } catch (authErr) {
+        showError('فشل التحقق من هوية الطالب', authErr.message || 'يرجى تسجيل الدخول أولاً للمتابعة.');
+        return;
+      }
+
+      // 2. Validate exam_id from URL Query
+      const urlParams = new URLSearchParams(window.location.search);
+      const rawExamId = urlParams.get('exam_id');
+
+      if (!rawExamId || !rawExamId.trim()) {
+        showError('معرف الاختبار مفقود', 'لم يتم تحديد معرف الاختبار (exam_id) في عنوان الصفحة. يرجى استخدام الرابط المعتمد المقدم لك.');
+        return;
+      }
+
+      examId = rawExamId.trim();
+      if (!UUID_REGEX.test(examId)) {
+        showError('معرف الاختبار غير صالح', 'صيغة معرف الاختبار المحدد في الرابط غير صحيحة (يجب أن يكون بصيغة UUID معتمدة).');
+        return;
+      }
+
+      // 3. Start or Resume Attempt via RPC #1
+      try {
+        const attemptResult = await startExamAttempt(examId);
+
+        if (!attemptResult || !attemptResult.attempt_id) {
+          throw new Error('لم يقم الخادم بإرجاع معرف المحاولة.');
+        }
+
+        attemptId = attemptResult.attempt_id;
+        expiresAt = attemptResult.expires_at;
+
+        document.getElementById('exam-attempt-number').textContent = `محاولة #${attemptResult.attempt_number || 1}`;
+
+        // Check if attempt is already completed/expired
+        if (attemptResult.status === 'completed' || attemptResult.status === 'expired') {
+          await showCompletedAttemptResult(attemptId);
+          return;
+        }
+
+        // 4. Load only authenticated student's own frozen attempt items
+        const items = await fetchAttemptItems(attemptId);
+        if (!items || items.length === 0) {
+          showError('لا توجد أسئلة مهيأة', 'لم يتم العثور على أي أسئلة مهيأة لهذه المحاولة.');
+          return;
+        }
+
+        attemptItems = items;
+
+        // 5. ANSWER RESTORATION: Load existing attempt_answers
+        const itemIds = items.map(it => it.id);
+        const existingAnswers = await fetchAttemptAnswers(itemIds);
+        existingAnswers.forEach(ans => {
+          savedAnswersMap[ans.attempt_item_id] = {
+            selectedOptionKey: ans.selected_option_key,
+            textResponse: ans.text_response,
+            audioStoragePath: ans.audio_storage_path,
+            audioDurationSeconds: ans.audio_duration_seconds,
+          };
+        });
+
+        // 6. Check server expiry
+        if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
+          isExpired = true;
+        }
+
+        // 7. Render UI & Restore Saved Inputs
+        renderQuestions();
+        renderNavigator();
+        updateProgress();
+
+        // 8. Start display-only timer
+        startServerCountdown(expiresAt);
+
+        // Display exam runner
+        viewLoading.style.display = 'none';
+        examHeader.style.display = 'block';
+        viewExamRunner.style.display = 'block';
+
+        if (isExpired) {
+          handleTimerExpired();
+        }
+
+      } catch (err) {
+        showError('تعذر بدء الاختبار', err.message || 'حدث خطأ أثناء الاتصال بالخادم لبدء الاختبار.');
+      }
+    }
+
+    // Display-Only Server Timer
+    function startServerCountdown(isoExpiresAt) {
+      if (!isoExpiresAt) {
+        timerDisplay.textContent = '--:--';
+        return;
+      }
+      const targetTime = new Date(isoExpiresAt).getTime();
+
+      const updateTimer = () => {
+        const now = Date.now();
+        const diffSeconds = Math.floor((targetTime - now) / 1000);
+
+        if (diffSeconds <= 0) {
+          timerDisplay.textContent = '00:00';
+          timerBadge.className = 'timer-badge timer-danger';
+          handleTimerExpired();
+          if (timerInterval) clearInterval(timerInterval);
+          return;
+        }
+
+        const hours = Math.floor(diffSeconds / 3600);
+        const minutes = Math.floor((diffSeconds % 3600) / 60);
+        const seconds = diffSeconds % 60;
+
+        let formatted = '';
+        if (hours > 0) {
+          formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        } else {
+          formatted = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        timerDisplay.textContent = formatted;
+
+        if (diffSeconds <= 300 && diffSeconds > 60) {
+          timerBadge.className = 'timer-badge timer-warning';
+        } else if (diffSeconds <= 60) {
+          timerBadge.className = 'timer-badge timer-danger';
+        } else {
+          timerBadge.className = 'timer-badge';
+        }
+      };
+
+      updateTimer();
+      timerInterval = setInterval(updateTimer, 1000);
+    }
+
+    function handleTimerExpired() {
+      if (isExpired && viewExpiredBanner.style.display === 'block') return;
+      isExpired = true;
+
+      // Stop any active recordings immediately
+      Object.keys(activeMediaRecorders).forEach(itemId => {
+        stopRecording(itemId, true);
+      });
+
+      // Disable all inputs & controls
+      document.querySelectorAll('.exam-input, .exam-radio').forEach(el => {
+        el.disabled = true;
+      });
+      document.querySelectorAll('.btn-save-answer, .btn-save-text, .btn-start-record, .btn-stop-record, .btn-save-speaking').forEach(el => {
+        el.disabled = true;
+      });
+      document.querySelectorAll('.option-item').forEach(el => {
+        el.classList.add('is-disabled');
+      });
+
+      // Show Expired Banner
+      viewExpiredBanner.style.display = 'block';
+      toast.warning('انتهت مدة الاختبار الرسمية المحددة من الخادم.', 'تنبيه انتهاء الوقت');
+    }
+
+    // Render Question Cards
+    function renderQuestions() {
+      questionsContainer.innerHTML = attemptItems.map((item, index) => {
+        const itemNumber = index + 1;
+        const currentSaved = savedAnswersMap[item.id] || {};
+        const isAnswered = Boolean(
+          currentSaved.selectedOptionKey || 
+          (currentSaved.textResponse && currentSaved.textResponse.trim()) ||
+          currentSaved.audioStoragePath
+        );
+
+        let inputHtml = '';
+
+        if (item.item_type === 'mcq' || item.item_type === 'true_false') {
+          const options = Array.isArray(item.frozen_options) ? item.frozen_options : [];
+          inputHtml = `
+            <div class="options-group">
+              ${options.map(opt => {
+                const isSelected = currentSaved.selectedOptionKey === opt.option_key;
+                return `
+                  <label class="option-item ${isSelected ? 'selected' : ''} ${isExpired ? 'is-disabled' : ''}" 
+                    data-item-id="${item.id}" 
+                    data-opt-key="${escapeHtml(opt.option_key)}"
+                  >
+                    <input type="radio" 
+                      name="q_${item.id}" 
+                      value="${escapeHtml(opt.option_key)}" 
+                      class="exam-radio"
+                      ${isSelected ? 'checked' : ''}
+                      ${isExpired ? 'disabled' : ''}
+                    >
+                    <span class="option-key-badge">${escapeHtml(opt.option_key)}</span>
+                    <span style="font-size: 1rem; color: var(--color-neutral-900);">${escapeHtml(opt.option_text)}</span>
+                  </label>
+                `;
+              }).join('')}
+            </div>
+          `;
+        } else if (item.item_type === 'short_answer') {
+          const textVal = currentSaved.textResponse || '';
+          inputHtml = `
+            <div class="form-group" style="margin-bottom: 0;">
+              <input type="text" 
+                class="form-input exam-input exam-text-input" 
+                id="input_${item.id}" 
+                data-item-id="${item.id}"
+                placeholder="اكتب إجابتك هنا..." 
+                value="${escapeHtml(textVal)}"
+                ${isExpired ? 'disabled' : ''}
+              >
+            </div>
+          `;
+        } else if (item.item_type === 'writing') {
+          const textVal = currentSaved.textResponse || '';
+          inputHtml = `
+            <div class="form-group" style="margin-bottom: 0;">
+              <textarea 
+                class="form-textarea exam-input exam-textarea" 
+                id="input_${item.id}" 
+                data-item-id="${item.id}"
+                rows="6" 
+                placeholder="اكتب نص إجابتك بالتفصيل هنا..." 
+                ${isExpired ? 'disabled' : ''}
+              >${escapeHtml(textVal)}</textarea>
+            </div>
+          `;
+        } else if (item.item_type === 'speaking') {
+          // Native Speaking Recording Component
+          const hasSavedAudio = Boolean(currentSaved.audioStoragePath);
+          inputHtml = `
+            <div class="speaking-box" id="speaking_box_${item.id}">
+              <div id="speaking_notice_${item.id}" style="${hasSavedAudio ? '' : 'display: none;'} margin-bottom: 1rem;">
+                <div class="alert alert-success" style="margin-bottom: 0.75rem;">
+                  ✓ تم حفظ التسجيل الصوتي سابقاً في النظام ${currentSaved.audioDurationSeconds ? `(المدة: ${currentSaved.audioDurationSeconds} ثانية)` : ''}
+                </div>
+              </div>
+
+              <!-- Permission / Technical Error Box -->
+              <div id="speaking_error_${item.id}" class="alert alert-danger" style="display: none; margin-bottom: 1rem; text-align: right;"></div>
+
+              <!-- Idle / Ready State -->
+              <div id="speaking_idle_${item.id}">
+                <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.9375rem;">
+                  قم بتسجيل إجابتك الشفوية بصوت واضح (الحد الأقصى للتسجيل: دقيقتان).
+                </p>
+                <button type="button" class="btn btn-primary btn-start-record" data-item-id="${item.id}" ${isExpired ? 'disabled' : ''}>
+                  🎤 ${hasSavedAudio ? 'إعادة تسجيل مقطع جديد' : 'بدء التسجيل الصوتي'}
+                </button>
+              </div>
+
+              <!-- Active Recording State -->
+              <div id="speaking_active_${item.id}" style="display: none;">
+                <div class="recording-pulse-indicator">
+                  <span>●</span> <span>جاري تسجيل الصوت الآن...</span>
+                </div>
+                <div class="recording-timer" id="recording_timer_${item.id}">00:00 / 02:00</div>
+                <div>
+                  <button type="button" class="btn btn-danger btn-stop-record" data-item-id="${item.id}">
+                    ⏹ إيقاف التسجيل
+                  </button>
+                </div>
+              </div>
+
+              <!-- Review / Playback Before Save State -->
+              <div id="speaking_review_${item.id}" style="display: none; margin-top: 1rem;">
+                <div style="font-weight: 700; color: var(--color-neutral-900); margin-bottom: 0.5rem;" id="recording_review_meta_${item.id}">
+                  المعاينة والاستماع قبل الاعتماد:
+                </div>
+                <audio id="audio_player_${item.id}" controls style="width: 100%; max-width: 480px; margin: 0.5rem auto 1rem; display: block;"></audio>
+                <div class="flex items-center justify-center gap-2">
+                  <button type="button" class="btn btn-outline btn-rerecord" data-item-id="${item.id}" ${isExpired ? 'disabled' : ''}>
+                    🔄 إعادة التسجيل
+                  </button>
+                  <button type="button" class="btn btn-success btn-save-speaking" data-item-id="${item.id}" ${isExpired ? 'disabled' : ''}>
+                    ✓ حفظ واعتماد التسجيل
+                  </button>
+                </div>
+              </div>
+
+              <!-- Uploading / Processing State -->
+              <div id="speaking_uploading_${item.id}" style="display: none; margin-top: 1rem;">
+                <div class="spinner" style="width: 2rem; height: 2rem; margin: 0 auto 0.75rem;"></div>
+                <div style="font-weight: 600; color: var(--color-primary);">جاري رفع التسجيل الصوتي وتأكيده في النظام...</div>
+              </div>
+            </div>
+          `;
+        } else if (item.item_type === 'listening') {
+          // Listening Architecture Notice
+          const options = Array.isArray(item.frozen_options) ? item.frozen_options : [];
+          inputHtml = `
+            <div class="alert alert-warning" style="margin-bottom: 1.25rem;">
+              <strong>ملاحظة تقنية حول مهارة الاستماع:</strong>
+              يتطلب البث الصوتي المباشر لأسئلة الاستماع ربط وتوقيع مسار الوسائط المجمّدة (Signed URL) وفق سياسة التخزين السحابي دون تجاوز ضوابط RLS. السؤال متاح للمعاينة وحل الخيارات المعتمدة أدناه.
+            </div>
+          `;
+
+          if (options.length > 0) {
+            inputHtml += `
+              <div class="options-group">
+                ${options.map(opt => {
+                  const isSelected = currentSaved.selectedOptionKey === opt.option_key;
+                  return `
+                    <label class="option-item ${isSelected ? 'selected' : ''} ${isExpired ? 'is-disabled' : ''}" 
+                      data-item-id="${item.id}" 
+                      data-opt-key="${escapeHtml(opt.option_key)}"
+                    >
+                      <input type="radio" 
+                        name="q_${item.id}" 
+                        value="${escapeHtml(opt.option_key)}" 
+                        class="exam-radio"
+                        ${isSelected ? 'checked' : ''}
+                        ${isExpired ? 'disabled' : ''}
+                      >
+                      <span class="option-key-badge">${escapeHtml(opt.option_key)}</span>
+                      <span style="font-size: 1rem; color: var(--color-neutral-900);">${escapeHtml(opt.option_text)}</span>
+                    </label>
+                  `;
+                }).join('')}
+              </div>
+            `;
+          } else {
+            const textVal = currentSaved.textResponse || '';
+            inputHtml += `
+              <div class="form-group" style="margin-bottom: 0;">
+                <input type="text" 
+                  class="form-input exam-input exam-text-input" 
+                  id="input_${item.id}" 
+                  data-item-id="${item.id}"
+                  placeholder="اكتب إجابتك هنا..." 
+                  value="${escapeHtml(textVal)}"
+                  ${isExpired ? 'disabled' : ''}
+                >
+              </div>
+            `;
+          }
+        }
+
+        return `
+          <div class="question-card" id="q_card_${item.id}">
+            <div class="question-header">
+              <div class="question-title">السؤال رقم ${itemNumber}</div>
+              <div class="flex items-center gap-2">
+                <span class="badge badge-neutral">${item.allocated_score} درجات</span>
+                <span class="badge badge-primary">${formatItemType(item.item_type)}</span>
+              </div>
+            </div>
+
+            <div class="question-text">${escapeHtml(item.frozen_question_text)}</div>
+
+            ${inputHtml}
+
+            <div class="flex items-center justify-between" style="margin-top: 1.25rem; padding-top: 0.75rem; border-top: 1px dashed var(--border-subtle);">
+              <div class="save-indicator ${isAnswered ? 'saved' : ''}" id="save_status_${item.id}">
+                ${isAnswered ? '✓ تم حفظ الإجابة' : 'لم تُجب بعد'}
+              </div>
+
+              ${(item.item_type === 'short_answer' || item.item_type === 'writing' || (item.item_type === 'listening' && (!item.frozen_options || item.frozen_options.length === 0))) ? `
+                <button type="button" class="btn btn-primary btn-sm btn-save-text" data-item-id="${item.id}" ${isExpired ? 'disabled' : ''}>
+                  حفظ الإجابة
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      attachQuestionEventHandlers();
+    }
+
+    // Attach Interactive Event Handlers
+    function attachQuestionEventHandlers() {
+      // 1. MCQ & True/False Selection
+      document.querySelectorAll('.option-item').forEach(label => {
+        label.addEventListener('click', async (e) => {
+          if (isExpired) return;
+          const itemId = label.dataset.itemId;
+          const optKey = label.dataset.optKey;
+          const radio = label.querySelector('input[type="radio"]');
+
+          const parentGroup = label.closest('.options-group');
+          parentGroup.querySelectorAll('.option-item').forEach(el => el.classList.remove('selected'));
+          label.classList.add('selected');
+          radio.checked = true;
+
+          await handleSaveAnswer(itemId, { selectedOptionKey: optKey });
+        });
+      });
+
+      // 2. Explicit Save Button for Short Answer & Writing
+      document.querySelectorAll('.btn-save-text').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (isExpired) return;
+          const itemId = btn.dataset.itemId;
+          const inputEl = document.getElementById(`input_${itemId}`);
+          const textVal = inputEl ? inputEl.value : '';
+
+          btn.disabled = true;
+          btn.textContent = 'جاري الحفظ...';
+
+          await handleSaveAnswer(itemId, { textResponse: textVal });
+
+          btn.disabled = false;
+          btn.textContent = 'حفظ الإجابة';
+        });
+      });
+
+      // 3. Debounced Auto-Save on Typing & on Blur for Text Inputs
+      document.querySelectorAll('.exam-text-input, .exam-textarea').forEach(inputEl => {
+        const itemId = inputEl.dataset.itemId;
+
+        inputEl.addEventListener('blur', async () => {
+          if (isExpired) return;
+          const textVal = inputEl.value;
+          const prev = savedAnswersMap[itemId]?.textResponse;
+          if (textVal !== prev) {
+            await handleSaveAnswer(itemId, { textResponse: textVal });
+          }
+        });
+
+        inputEl.addEventListener('input', () => {
+          if (isExpired) return;
+          if (debounceTimers[itemId]) clearTimeout(debounceTimers[itemId]);
+
+          const statusEl = document.getElementById(`save_status_${itemId}`);
+          if (statusEl) {
+            statusEl.className = 'save-indicator saving';
+            statusEl.textContent = 'تغييرات غير محفوظة...';
+          }
+
+          debounceTimers[itemId] = setTimeout(async () => {
+            if (isExpired) return;
+            const textVal = inputEl.value;
+            await handleSaveAnswer(itemId, { textResponse: textVal });
+          }, 1500);
+        });
+      });
+
+      // 4. Speaking Recording Buttons
+      document.querySelectorAll('.btn-start-record').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const itemId = btn.dataset.itemId;
+          startRecording(itemId);
+        });
+      });
+
+      document.querySelectorAll('.btn-stop-record').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const itemId = btn.dataset.itemId;
+          stopRecording(itemId, false);
+        });
+      });
+
+      document.querySelectorAll('.btn-rerecord').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const itemId = btn.dataset.itemId;
+          resetSpeakingToIdle(itemId);
+        });
+      });
+
+      document.querySelectorAll('.btn-save-speaking').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const itemId = btn.dataset.itemId;
+          await handleSaveSpeakingAnswer(itemId);
+        });
+      });
+    }
+
+    // =========================================================================
+    // Speaking Recording Logic (MediaRecorder API)
+    // =========================================================================
+    async function startRecording(itemId) {
+      if (isExpired) {
+        toast.warning('لا يمكن بدء التسجيل بعد انتهاء وقت الاختبار.');
+        return;
+      }
+
+      const errorBox = document.getElementById(`speaking_error_${itemId}`);
+      const idleView = document.getElementById(`speaking_idle_${itemId}`);
+      const activeView = document.getElementById(`speaking_active_${itemId}`);
+      const reviewView = document.getElementById(`speaking_review_${itemId}`);
+      const timerEl = document.getElementById(`recording_timer_${itemId}`);
+
+      errorBox.style.display = 'none';
+
+      // Verify browser MediaRecorder support
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
+        errorBox.textContent = 'متصفحك الحالي لا يدعم واجهة تسجيل الصوت (MediaRecorder API). يرجى استخدام متصفح حديث.';
+        errorBox.style.display = 'block';
+        return;
+      }
+
+      try {
+        // Request microphone permission only when user clicks record
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        let mimeType = 'audio/webm';
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          mimeType = 'audio/webm';
+        }
+
+        const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+        const chunks = [];
+        const startTime = Date.now();
+
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            chunks.push(e.data);
+          }
+        };
+
+        recorder.onstop = () => {
+          // Calculate actual duration from recording clock
+          const actualDuration = Math.max(1, Math.round((Date.now() - startTime) / 1000));
+          const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+          recordedBlobs[itemId] = { blob: audioBlob, duration: actualDuration };
+
+          // Stop and release media stream tracks
+          stream.getTracks().forEach(track => track.stop());
+
+          // Switch to review state
+          activeView.style.display = 'none';
+          reviewView.style.display = 'block';
+
+          const audioPlayer = document.getElementById(`audio_player_${itemId}`);
+          const reviewMeta = document.getElementById(`recording_review_meta_${itemId}`);
+          const audioUrl = URL.createObjectURL(audioBlob);
+          audioPlayer.src = audioUrl;
+          reviewMeta.textContent = `معاينة التسجيل الصوتي (المدة: ${actualDuration} ثانية):`;
+        };
+
+        recorder.start(250); // collect chunks every 250ms
+
+        // Timer display ticker
+        const timerTicker = setInterval(() => {
+          const elapsed = Math.floor((Date.now() - startTime) / 1000);
+          const remaining = Math.max(0, MAX_SPEAKING_DURATION_SECONDS - elapsed);
+
+          const elMins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+          const elSecs = String(elapsed % 60).padStart(2, '0');
+          const maxMins = String(Math.floor(MAX_SPEAKING_DURATION_SECONDS / 60)).padStart(2, '0');
+          const maxSecs = String(MAX_SPEAKING_DURATION_SECONDS % 60).padStart(2, '0');
+
+          timerEl.textContent = `${elMins}:${elSecs} / ${maxMins}:${maxSecs}`;
+
+          if (elapsed >= MAX_SPEAKING_DURATION_SECONDS) {
+            stopRecording(itemId, false);
+          }
+        }, 200);
+
+        activeMediaRecorders[itemId] = {
+          recorder,
+          stream,
+          timerTicker,
+          startTime
+        };
+
+        idleView.style.display = 'none';
+        reviewView.style.display = 'none';
+        activeView.style.display = 'block';
+
+      } catch (err) {
+        console.error('Microphone permission error:', err);
+        errorBox.textContent = 'تعذر تشغيل الميكروفون. يرجى التأكد من توصيل الميكروفون ومنح الإذن في المتصفح.';
+        errorBox.style.display = 'block';
+      }
+    }
+
+    function stopRecording(itemId, forceCancel = false) {
+      const recObj = activeMediaRecorders[itemId];
+      if (!recObj) return;
+
+      if (recObj.timerTicker) clearInterval(recObj.timerTicker);
+
+      if (recObj.recorder && recObj.recorder.state !== 'inactive') {
+        recObj.recorder.stop();
+      }
+
+      delete activeMediaRecorders[itemId];
+
+      if (forceCancel) {
+        resetSpeakingToIdle(itemId);
+      }
+    }
+
+    function resetSpeakingToIdle(itemId) {
+      document.getElementById(`speaking_active_${itemId}`).style.display = 'none';
+      document.getElementById(`speaking_review_${itemId}`).style.display = 'none';
+      document.getElementById(`speaking_uploading_${itemId}`).style.display = 'none';
+      document.getElementById(`speaking_idle_${itemId}`).style.display = 'block';
+      delete recordedBlobs[itemId];
+    }
+
+    async function handleSaveSpeakingAnswer(itemId) {
+      if (isExpired) {
+        toast.warning('لا يمكن رفع التسجيلات بعد انتهاء وقت الاختبار.');
+        return;
+      }
+
+      const recordData = recordedBlobs[itemId];
+      if (!recordData || !recordData.blob) {
+        toast.error('لا يوجد مقطع صوتي جاهز للرفع.');
+        return;
+      }
+
+      const reviewView = document.getElementById(`speaking_review_${itemId}`);
+      const uploadingView = document.getElementById(`speaking_uploading_${itemId}`);
+      const noticeView = document.getElementById(`speaking_notice_${itemId}`);
+      const statusEl = document.getElementById(`save_status_${itemId}`);
+
+      reviewView.style.display = 'none';
+      uploadingView.style.display = 'block';
+
+      if (statusEl) {
+        statusEl.className = 'save-indicator saving';
+        statusEl.textContent = 'جاري رفع الصوت...';
+      }
+
+      try {
+        const studentId = currentAuth.user.id;
+        const externalTenantId = currentAuth.profile.external_tenant_id;
+        const actualDuration = recordData.duration;
+
+        // 1. Upload audio blob to 'student-recordings' Supabase bucket
+        const storagePath = await uploadSpeakingRecording({
+          externalTenantId,
+          studentId,
+          attemptId,
+          attemptItemId: itemId,
+          audioBlob: recordData.blob
+        });
+
+        // 2. Persist answer via save-exam-answer Edge Function (RPC #2)
+        await saveExamAnswer({
+          attemptId,
+          attemptItemId: itemId,
+          audioStoragePath: storagePath,
+          audioDurationSeconds: actualDuration
+        });
+
+        // 3. Update local state
+        savedAnswersMap[itemId] = {
+          audioStoragePath: storagePath,
+          audioDurationSeconds: actualDuration
+        };
+
+        uploadingView.style.display = 'none';
+        noticeView.style.display = 'block';
+        noticeView.innerHTML = `
+          <div class="alert alert-success" style="margin-bottom: 0.75rem;">
+            ✓ تم تسجيل وحفظ المقطع الصوتي بنجاح (المدة: ${actualDuration} ثانية)
+          </div>
+        `;
+        document.getElementById(`speaking_idle_${itemId}`).style.display = 'block';
+
+        if (statusEl) {
+          statusEl.className = 'save-indicator saved';
+          statusEl.textContent = '✓ تم حفظ التسجيل';
+        }
+
+        toast.success('تم رفع وحفظ التسجيل الصوتي بنجاح!');
+        renderNavigator();
+        updateProgress();
+
+      } catch (err) {
+        console.error('Speaking save error:', err);
+        uploadingView.style.display = 'none';
+        reviewView.style.display = 'block';
+
+        if (statusEl) {
+          statusEl.className = 'save-indicator error';
+          statusEl.textContent = 'فشل رفع الصوت!';
+        }
+        toast.error(`فشل حفظ التسجيل: ${err.message}`);
+      }
+    }
+
+    // Save Answer Dispatcher via save-exam-answer Edge Function
+    async function handleSaveAnswer(attemptItemId, { selectedOptionKey = null, textResponse = null, audioStoragePath = null, audioDurationSeconds = null }) {
+      if (isExpired) {
+        toast.warning('لا يمكن حفظ الإجابات بعد انتهاء الوقت المحدد.');
+        return;
+      }
+
+      const statusEl = document.getElementById(`save_status_${attemptItemId}`);
+      if (statusEl) {
+        statusEl.className = 'save-indicator saving';
+        statusEl.textContent = 'جاري الحفظ...';
+      }
+
+      try {
+        await saveExamAnswer({
+          attemptId,
+          attemptItemId,
+          selectedOptionKey,
+          textResponse,
+          audioStoragePath,
+          audioDurationSeconds,
+        });
+
+        savedAnswersMap[attemptItemId] = {
+          selectedOptionKey,
+          textResponse,
+          audioStoragePath,
+          audioDurationSeconds,
+        };
+
+        if (statusEl) {
+          statusEl.className = 'save-indicator saved';
+          statusEl.textContent = '✓ تم حفظ الإجابة';
+        }
+
+        renderNavigator();
+        updateProgress();
+      } catch (err) {
+        if (statusEl) {
+          statusEl.className = 'save-indicator error';
+          statusEl.textContent = 'فشل الحفظ!';
+        }
+        toast.error(`تعذر حفظ الإجابة: ${err.message}`);
+      }
+    }
+
+    // Question Navigator
+    function renderNavigator() {
+      questionNavigator.innerHTML = attemptItems.map((item, index) => {
+        const itemNumber = index + 1;
+        const currentSaved = savedAnswersMap[item.id] || {};
+        const isAnswered = Boolean(
+          currentSaved.selectedOptionKey || 
+          (currentSaved.textResponse && currentSaved.textResponse.trim()) ||
+          currentSaved.audioStoragePath
+        );
+
+        return `
+          <button type="button" 
+            class="nav-btn ${isAnswered ? 'answered' : ''}" 
+            data-target="q_card_${item.id}"
+            title="السؤال ${itemNumber} (${isAnswered ? 'تمت الإجابة' : 'شاغر'})"
+          >
+            ${itemNumber}
+          </button>
+        `;
+      }).join('');
+
+      questionNavigator.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const targetId = btn.dataset.target;
+          const targetEl = document.getElementById(targetId);
+          if (targetEl) {
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            targetEl.style.transition = 'outline 0.3s';
+            targetEl.style.outline = '2px solid var(--color-primary)';
+            setTimeout(() => { targetEl.style.outline = 'none'; }, 1500);
+          }
+        });
+      });
+    }
+
+    // Progress Bar Indicator
+    function updateProgress() {
+      const total = attemptItems.length;
+      if (total === 0) return;
+
+      let answered = 0;
+      attemptItems.forEach(item => {
+        const ans = savedAnswersMap[item.id] || {};
+        if (ans.selectedOptionKey || (ans.textResponse && ans.textResponse.trim()) || ans.audioStoragePath) {
+          answered++;
+        }
+      });
+
+      const percentage = Math.round((answered / total) * 100);
+      progressText.textContent = `${answered} / ${total} تم حله (${percentage}%)`;
+      progressBarFill.style.width = `${percentage}%`;
+    }
+
+    // Submit Exam Modal & Execution
+    function openSubmitModal() {
+      let unansweredCount = 0;
+      attemptItems.forEach(item => {
+        const ans = savedAnswersMap[item.id] || {};
+        if (!ans.selectedOptionKey && (!ans.textResponse || !ans.textResponse.trim()) && !ans.audioStoragePath) {
+          unansweredCount++;
+        }
+      });
+
+      const warnEl = document.getElementById('submit-unanswered-warning');
+      if (unansweredCount > 0) {
+        warnEl.textContent = `تنبيه: لديك ${unansweredCount} سؤال لم تقم بالإجابة عليه بعد.`;
+        warnEl.style.display = 'block';
+      } else {
+        warnEl.style.display = 'none';
+      }
+
+      submitModal.classList.add('is-open');
+    }
+
+    function closeSubmitModal() {
+      submitModal.classList.remove('is-open');
+    }
+
+    async function executeSubmitExam() {
+      if (isSubmitting) return; // Prevent double submit
+      isSubmitting = true;
+
+      const confirmBtn = document.getElementById('modal-submit-confirm');
+      try {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'جاري التسليم والاعتماد...';
+
+        const result = await submitAndGradeExamAttempt(attemptId);
+        isSubmitted = true;
+
+        if (timerInterval) clearInterval(timerInterval);
+
+        closeSubmitModal();
+        displayResultView(result);
+
+        toast.success('تم تسليم الاختبار واعتماده بنجاح!');
+      } catch (err) {
+        toast.error(`فشل تسليم الاختبار: ${err.message}`);
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'نعم، تسليم الاختبار';
+      } finally {
+        isSubmitting = false;
+      }
+    }
+
+    // Render Backend Result State
+    function displayResultView(res) {
+      viewLoading.style.display = 'none';
+      examHeader.style.display = 'none';
+      viewExamRunner.style.display = 'none';
+      viewExpiredBanner.style.display = 'none';
+
+      const titleEl = document.getElementById('result-card-title');
+      const subtitleEl = document.getElementById('result-card-subtitle');
+      const statusBadge = document.getElementById('result-status-badge');
+      const iconEl = document.getElementById('result-status-icon');
+      const scoreCircle = document.getElementById('result-score-circle');
+      const scoreValue = document.getElementById('result-score-value');
+      const advisoryNote = document.getElementById('result-advisory-note');
+
+      const statTotalScore = document.getElementById('stat-total-score');
+      const statScoringStatus = document.getElementById('stat-scoring-status');
+      const statPassStatus = document.getElementById('stat-pass-status');
+      const statPlacementStatus = document.getElementById('stat-placement-status');
+
+      const scoringStatus = res.final_scoring_status || 'provisional';
+      const hasScore = typeof res.percentage_score === 'number' && Number.isFinite(res.percentage_score);
+
+      if (hasScore) {
+        scoreCircle.style.display = 'flex';
+        scoreValue.textContent = `${Math.round(res.percentage_score)}%`;
+        statTotalScore.textContent = `${res.total_score ?? '--'} (${res.percentage_score}%)`;
+      } else {
+        scoreCircle.style.display = 'none';
+        statTotalScore.textContent = 'بانتظار الرصد';
+      }
+
+      statPlacementStatus.textContent = res.placement_status || 'غير محدد';
+
+      if (scoringStatus === 'official_final') {
+        titleEl.textContent = 'النتيجة الرسمية المعتمدة';
+        subtitleEl.textContent = 'تم اعتماد وتوثيق نتيجة هذا الاختبار بشكل رسمي على خادم المنظومة.';
+        statusBadge.className = 'badge badge-success';
+        statusBadge.textContent = 'نتيجة رسمية معتمدة';
+        statScoringStatus.textContent = 'معتمدة نهائياً';
+        statPassStatus.textContent = res.is_passed === true ? 'ناجح ✓' : (res.is_passed === false ? 'لم يجتز ✗' : 'غير محدد');
+
+        advisoryNote.className = 'alert alert-success';
+        advisoryNote.textContent = res.is_passed 
+          ? 'تهانينا! لقد اجتزت الاختبار بنجاح وتم تسجيل النتيجة الرسمية في سجلك الأكاديمي.' 
+          : 'تم تسجيل النتيجة الرسمية. يمكنك مراجعة المعلم أو الاطلاع على الفرص التدريبية المتاحة.';
+
+      } else if (scoringStatus === 'provisional') {
+        titleEl.textContent = 'تم تسليم الاختبار — نتيجة مبدئية';
+        subtitleEl.textContent = 'تم احتساب درجات الأسئلة المؤتمتة بنجاح، وبانتظار مراجعة المعلم للأسئلة الكتابية والشفوية.';
+        statusBadge.className = 'badge badge-warning';
+        statusBadge.textContent = 'نتيجة مبدئية (قيد التدقيق)';
+        statScoringStatus.textContent = 'مبدئية (بانتظار المعلم)';
+        statPassStatus.textContent = 'معلق بانتظار الاعتماد';
+
+        advisoryNote.className = 'alert alert-warning';
+        advisoryNote.textContent = 'يتضمن هذا الاختبار أسئلة تتطلب تقييماً وتصحيحاً يدوياً من قِبل المعلم المختص (التعبير الكتابي / المحادثة الشفوية). ستظهر النتيجة والاجتياز النهائي فور اعتماد المعلم.';
+
+      } else if (res.status === 'expired') {
+        titleEl.textContent = 'انتهت صلاحية المحاولة';
+        subtitleEl.textContent = 'انتهى الوقت المحدد للمحاولة وتم قفل استقبال الإجابات والتسجيلات.';
+        statusBadge.className = 'badge badge-danger';
+        statusBadge.textContent = 'محاولة منتهية الصلاحية';
+        iconEl.textContent = '⏱';
+        iconEl.style.backgroundColor = 'var(--color-danger-bg)';
+        iconEl.style.color = 'var(--color-danger)';
+        statScoringStatus.textContent = 'منتهية الصلاحية';
+        statPassStatus.textContent = res.is_passed ? 'ناجح' : 'غير مجتاز';
+
+        advisoryNote.className = 'alert alert-danger';
+        advisoryNote.textContent = 'انتهت المهلة الزمنية للاختبار وتم حفظ وتسليم ما تم إنجازه.';
+
+      } else {
+        titleEl.textContent = 'تم تسليم الاختبار بنجاح';
+        subtitleEl.textContent = 'تم إرسال إجاباتك وهي قيد المعالجة في الخادم.';
+        statusBadge.className = 'badge badge-primary';
+        statusBadge.textContent = 'مكتمل';
+        statScoringStatus.textContent = 'قيد المعالجة';
+        statPassStatus.textContent = 'قيد المعالجة';
+
+        advisoryNote.className = 'alert alert-info';
+        advisoryNote.textContent = 'تم تسجيل الإجابات بنجاح. يمكنك متابعة حالة النتيجة عبر لوحة التحكم.';
+      }
+
+      const targetAttemptId = attemptId || res.attempt_id || res.id;
+      const btnViewDetailed = document.getElementById('btn-view-detailed-result');
+      if (btnViewDetailed && targetAttemptId) {
+        btnViewDetailed.href = `/student/result.html?attempt_id=${targetAttemptId}`;
+        btnViewDetailed.style.display = 'inline-flex';
+      }
+
+      viewResult.style.display = 'block';
+    }
+
+    // Helper for completed/expired attempts loaded directly
+    async function showCompletedAttemptResult(attId) {
+      try {
+        const attempt = await fetchAttemptById(attId);
+        if (attempt) {
+          displayResultView(attempt);
+        } else {
+          showError('المحاولة مكتملة', 'تم تسليم هذه المحاولة مسبقاً. يمكنك الاطلاع على النتيجة في لوحة التحكم.');
+        }
+      } catch (e) {
+        showError('المحاولة مكتملة', 'تم تسليم هذه المحاولة مسبقاً. يمكنك الاطلاع على النتيجة في لوحة التحكم.');
+      }
+    }
+
+    // Error Screen Display
+    function showError(title, message) {
+      viewLoading.style.display = 'none';
+      examHeader.style.display = 'none';
+      viewExamRunner.style.display = 'none';
+      errorTitle.textContent = title;
+      errorMessage.textContent = message;
+      viewError.style.display = 'block';
+    }
+
+    function formatItemType(type) {
+      switch (type) {
+        case 'mcq': return 'اختيار من متعدد';
+        case 'true_false': return 'صح أو خطأ';
+        case 'short_answer': return 'إجابة قصيرة';
+        case 'writing': return 'تعبير / كتابة';
+        case 'speaking': return 'تحدث / شفوي';
+        case 'listening': return 'استماع';
+        default: return type;
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Modal & Button Listeners
+    btnSubmitExam.addEventListener('click', openSubmitModal);
+    btnBottomSubmit.addEventListener('click', openSubmitModal);
+    document.getElementById('btn-finalize-expired').addEventListener('click', openSubmitModal);
+    document.getElementById('modal-submit-close').addEventListener('click', closeSubmitModal);
+    document.getElementById('modal-submit-cancel').addEventListener('click', closeSubmitModal);
+    document.getElementById('modal-submit-confirm').addEventListener('click', executeSubmitExam);
+
+    document.getElementById('btn-scroll-top').addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // Run Exam Flow
+    initExam();
+  </script>
+</body>
+</html>

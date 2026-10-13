@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة تحكم الطالب - منظومة اختبارات اللغة العربية</title>
+  <meta name="description" content="لوحة تحكم الطالب لمتابعة الاختبارات والنتائج والاستفسارات">
+
+  <!-- Google Arabic Fonts (Cairo & Tajawal) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- Supabase JS Client via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <link rel="stylesheet" href="/css/components.css">
+</head>
+<body>
+  <!-- Navigation Bar -->
+  <header class="app-navbar">
+    <div class="navbar-container">
+      <a href="/student/dashboard.html" class="navbar-brand">
+        <div class="brand-emblem">ض</div>
+        <div class="brand-text">
+          <span class="brand-title">منظومة اختبارات اللغة العربية</span>
+          <span class="brand-subtitle">بوابة الطالب الأكاديمية</span>
+        </div>
+      </a>
+      <div class="navbar-actions">
+        <div class="tenant-badge" title="نطاق المؤسسة التعليمية">
+          <span class="tenant-dot"></span>
+          <span>النطاق: </span>
+          <span id="navbar-tenant-id">tenant_default</span>
+        </div>
+        <div class="user-profile-menu">
+          <div class="user-avatar" id="navbar-user-avatar">ط</div>
+          <div class="user-meta">
+            <span class="user-name" id="navbar-user-name">جاري التحميل...</span>
+            <span class="user-role-label" id="navbar-user-role">طالب</span>
+          </div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" id="navbar-logout-btn" title="تسجيل الخروج">
+          خروج
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="app-container">
+    <!-- Welcome Card -->
+    <section class="welcome-card">
+      <h2 id="welcome-student-name">أهلاً بك</h2>
+      <p>
+        مرحباً بك في منصة الاختبارات وقياس الكفاءة اللغوية في اللغة العربية. يمكنك الاطلاع على محاولاتك السابقة ونتائجك المعتمدة والتواصل مع المعلمين.
+      </p>
+    </section>
+
+    <!-- Quick Stats Grid -->
+    <div class="grid grid-cols-3 gap-4 mb-6">
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-success">✓</div>
+        <div class="stat-content">
+          <span class="stat-value" id="stat-completed-attempts">0</span>
+          <span class="stat-label">المحاولات المكتملة</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-warning">⏳</div>
+        <div class="stat-content">
+          <span class="stat-value" id="stat-pending-reviews">0</span>
+          <span class="stat-label">محاولات قيد المراجعة</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-secondary">📊</div>
+        <div class="stat-content">
+          <span class="stat-value" id="stat-avg-score">—</span>
+          <span class="stat-label">متوسط الدرجات المعتمدة</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="tabs-nav">
+      <button type="button" class="tab-btn active" data-tab="tab-attempts">
+        سجل اختباراتي ومحاولاتي
+        <span class="tab-badge" id="badge-attempts-count">0</span>
+      </button>
+      <button type="button" class="tab-btn" data-tab="tab-exams">
+        دليل الاختبارات المتاحة
+        <span class="tab-badge" id="badge-exams-count">0</span>
+      </button>
+      <button type="button" class="tab-btn" data-tab="tab-inquiries">
+        استفساراتي مع المعلم
+        <span class="tab-badge" id="badge-inquiries-count">0</span>
+      </button>
+    </div>
+
+    <!-- Tab 1: My Attempts -->
+    <section class="tab-pane active" id="tab-attempts">
+      <div class="section-container">
+        <div class="section-header">
+          <h3 class="section-title">سجل محاولات الاختبارات</h3>
+          <span class="badge badge-neutral">بيانات الخادم الرسمية</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>الاختبار</th>
+                <th>رقم المحاولة</th>
+                <th>تاريخ البدء</th>
+                <th>الحالة</th>
+                <th>النسبة المئوية</th>
+                <th>الاجتياز</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="attempts-tbody">
+              <tr>
+                <td colspan="7" style="text-align: center; padding: 2rem;">جاري تحميل المحاولات من الخادم...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 2: Available Exams Catalog Notice -->
+    <section class="tab-pane" id="tab-exams">
+      <div class="section-container">
+        <div class="section-header">
+          <h3 class="section-title">دليل الاختبارات والتعيين</h3>
+          <span class="badge badge-info">قيد التطوير المعياري</span>
+        </div>
+        <div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <div class="empty-title">دليل الاختبارات العامة غير متاح حالياً للطلاب</div>
+          <div class="empty-text">
+            وفقاً لسياسات الأمان والحوكمة الأكاديمية للمنظومة، يتم توجيه الطلاب للاختبارات عبر التعيين المباشر أو الروابط المعتمدة من المعلم.
+          </div>
+          <div style="max-width: 480px; width: 100%; margin: 1.5rem auto 0; text-align: right;">
+            <label class="form-label" for="manual-exam-id">لديك معرف اختبار رسمي (Exam ID)؟</label>
+            <div class="flex gap-2">
+              <input type="text" id="manual-exam-id" class="form-input" placeholder="أدخل معرف الاختبار بصيغة UUID" dir="ltr" style="text-align: left;">
+              <button type="button" class="btn btn-primary" id="btn-start-manual-exam">فتح الاختبار</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 3: My Inquiries -->
+    <section class="tab-pane" id="tab-inquiries">
+      <div class="section-container">
+        <div class="section-header">
+          <h3 class="section-title">الاستفسارات الأكاديمية</h3>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-open-inquiry-modal">
+            + استفسار جديد
+          </button>
+        </div>
+        <div id="inquiries-container">
+          <div class="empty-state">
+            <div class="empty-icon">💬</div>
+            <div class="empty-title">جاري تحميل الاستفسارات...</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- New Inquiry Modal -->
+  <div class="modal-backdrop" id="inquiry-modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h4 class="modal-title">إرسال استفسار أكاديمي للمعلم</h4>
+        <button type="button" class="modal-close" id="modal-inquiry-close">&times;</button>
+      </div>
+      <form id="inquiry-form">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="inquiry-attempt-id">المحاولة المرتبطة <span class="required">*</span></label>
+            <select id="inquiry-attempt-id" class="form-select" required>
+              <!-- Populated dynamically from attempts -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="inquiry-subject">موضوع الاستفسار <span class="required">*</span></label>
+            <input type="text" id="inquiry-subject" class="form-input" placeholder="مثال: استيضاح حول سؤال التعبير" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="inquiry-message">نص الرسالة <span class="required">*</span></label>
+            <textarea id="inquiry-message" class="form-textarea" rows="4" placeholder="اكتب استفسارك بوضوح للمعلم..." required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="modal-inquiry-cancel">إلغاء</button>
+          <button type="submit" class="btn btn-primary" id="inquiry-submit-btn">إرسال الاستفسار</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <div class="footer-content">
+      <div>منظومة اختبارات اللغة العربية للناطقين بغيرها</div>
+      <div>بوابة الطالب - المعايير الأكاديمية والسرية محفوظة</div>
+    </div>
+  </footer>
+
+  <!-- Page Logic -->
+  <script type="module">
+    import { requireAuth } from '/src/js/services/auth.js';
+    import { initNavbar, formatDate, formatStatusBadge, formatPassStatus } from '/src/js/app.js';
+    import { fetchStudentAttempts, fetchStudentInquiries, createStudentInquiry } from '/src/js/services/examApi.js';
+    import { toast } from '/src/js/components/toast.js';
+
+    let currentAuth = null;
+    let studentAttemptsList = [];
+
+    async function initPage() {
+      try {
+        currentAuth = await requireAuth(['student', 'admin']);
+        if (!currentAuth) return;
+
+        initNavbar(currentAuth);
+
+        const welcomeName = document.getElementById('welcome-student-name');
+        if (currentAuth.profile?.full_name) {
+          welcomeName.textContent = `أهلاً بك، ${currentAuth.profile.full_name}`;
+        }
+
+        await loadDashboardData();
+      } catch (err) {
+        toast.error(err.message || 'فشل تهيئة لوحة التحكم.');
+      }
+    }
+
+    async function loadDashboardData() {
+      await Promise.allSettled([
+        loadAttempts(),
+        loadInquiries(),
+      ]);
+    }
+
+    async function loadAttempts() {
+      const tbody = document.getElementById('attempts-tbody');
+      const countBadge = document.getElementById('badge-attempts-count');
+      const statCompleted = document.getElementById('stat-completed-attempts');
+      const statPending = document.getElementById('stat-pending-reviews');
+      const statAvg = document.getElementById('stat-avg-score');
+
+      try {
+        const attempts = await fetchStudentAttempts();
+        studentAttemptsList = attempts;
+        countBadge.textContent = attempts.length;
+
+        let completed = 0;
+        let pending = 0;
+        let totalScores = 0;
+        let scoresCount = 0;
+
+        attempts.forEach(a => {
+          if (a.status === 'completed') {
+            completed++;
+            if (a.final_scoring_status === 'provisional') {
+              pending++;
+            } else if (a.final_scoring_status === 'official_final') {
+              if (a.percentage_score !== null && a.percentage_score !== undefined) {
+                totalScores += Number(a.percentage_score);
+                scoresCount++;
+              }
+            }
+          }
+        });
+
+        statCompleted.textContent = completed;
+        statPending.textContent = pending;
+        statAvg.textContent = scoresCount > 0 ? `${Math.round(totalScores / scoresCount)}%` : '—';
+
+        if (attempts.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                لا توجد محاولات سابقة مسجلة لحسابك.
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        tbody.innerHTML = attempts.map(attempt => {
+          const scoreDisplay = attempt.percentage_score !== null ? `${attempt.percentage_score}%` : '—';
+          const isFinal = attempt.final_scoring_status === 'official_final';
+
+          return `
+            <tr>
+              <td><b>اختبار اللغة العربية</b></td>
+              <td>محاولة ${attempt.attempt_number || 1}</td>
+              <td>${formatDate(attempt.started_at)}</td>
+              <td>${formatStatusBadge(attempt.status, attempt.final_scoring_status)}</td>
+              <td><b>${scoreDisplay}</b></td>
+              <td>${formatPassStatus(attempt.is_passed)}</td>
+              <td>
+                ${isFinal 
+                   ? `<a href="/student/result.html?attempt_id=${attempt.id}" class="btn btn-outline-primary btn-sm">عرض النتيجة والتحليل</a>`
+                   : (attempt.status === 'in_progress'
+                       ? `<a href="/student/exam.html?exam_id=${attempt.exam_id}" class="btn btn-primary btn-sm">متابعة الاختبار</a>`
+                       : (attempt.final_scoring_status === 'provisional'
+                           ? `<a href="/student/result.html?attempt_id=${attempt.id}" class="btn btn-outline btn-sm">قيد المراجعة</a>`
+                           : `<a href="/student/result.html?attempt_id=${attempt.id}" class="btn btn-ghost btn-sm">تفاصيل المحاولة</a>`
+                         )
+                     )
+                }
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+        const select = document.getElementById('inquiry-attempt-id');
+        select.innerHTML = '<option value="">-- اختر المحاولة المرتبطة --</option>' + attempts.map(a => `
+          <option value="${a.id}">محاولة #${a.attempt_number} (بتاريخ ${formatDate(a.started_at)})</option>
+        `).join('');
+
+      } catch (err) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" style="text-align: center; padding: 2rem; color: var(--color-danger);">
+              ${escapeHtml(err.message || 'فشل تحميل بيانات المحاولات من الخادم.')}
+            </td>
+          </tr>
+        `;
+        toast.error(err.message || 'فشل جلب محاولات الاختبار.');
+      }
+    }
+
+    async function loadInquiries() {
+      const container = document.getElementById('inquiries-container');
+      const countBadge = document.getElementById('badge-inquiries-count');
+
+      try {
+        const inquiries = await fetchStudentInquiries();
+        countBadge.textContent = inquiries.length;
+
+        if (inquiries.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-icon">💬</div>
+              <div class="empty-title">لا توجد استفسارات سابقة</div>
+              <div class="empty-text">يمكنك إرسال استفسار للمعلم بخصوص أي محاولة مكتملة عبر الزر أعلاه.</div>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = inquiries.map(inq => {
+          const isAnswered = inq.status === 'answered' && Boolean(inq.teacher_response);
+          return `
+            <div style="border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1rem; background-color: var(--color-neutral-25);">
+              <div class="flex items-center justify-between mb-2">
+                <h4 style="font-size: 1rem; margin: 0;">${escapeHtml(inq.subject)}</h4>
+                <span class="badge ${isAnswered ? 'badge-success' : 'badge-warning'}">
+                  ${isAnswered ? 'تم الرد' : 'قيد الانتظار'}
+                </span>
+              </div>
+              <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+                <b>رسالتك: </b>${escapeHtml(inq.student_message)}
+              </p>
+              ${isAnswered ? `
+                <div style="padding: 0.875rem; background-color: var(--color-primary-50); border-right: 3px solid var(--color-primary); border-radius: var(--radius-sm); font-size: 0.875rem; color: var(--color-primary-900);">
+                  <b>رد المعلم: </b>${escapeHtml(inq.teacher_response)}
+                </div>
+              ` : ''}
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+                تاريخ الإرسال: ${formatDate(inq.created_at)}
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        container.innerHTML = `
+          <div class="alert alert-danger">
+            ${escapeHtml(err.message || 'فشل جلب الاستفسارات.')}
+          </div>
+        `;
+        toast.error(err.message || 'فشل جلب استفسارات الطالب.');
+      }
+    }
+
+    // Modal Handling
+    const inquiryModal = document.getElementById('inquiry-modal');
+    const btnOpenInquiry = document.getElementById('btn-open-inquiry-modal');
+    const inquiryModalClose = document.getElementById('modal-inquiry-close');
+    const inquiryModalCancel = document.getElementById('modal-inquiry-cancel');
+    const inquiryForm = document.getElementById('inquiry-form');
+
+    btnOpenInquiry.addEventListener('click', () => {
+      inquiryModal.classList.add('is-open');
+    });
+
+    const closeInquiryModal = () => {
+      inquiryModal.classList.remove('is-open');
+      inquiryForm.reset();
+    };
+
+    inquiryModalClose.addEventListener('click', closeInquiryModal);
+    inquiryModalCancel.addEventListener('click', closeInquiryModal);
+
+    inquiryForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const attemptId = document.getElementById('inquiry-attempt-id').value;
+      const subject = document.getElementById('inquiry-subject').value;
+      const studentMessage = document.getElementById('inquiry-message').value;
+
+      if (!attemptId) {
+        toast.warning('يرجى اختيار المحاولة المرتبطة بالاستفسار.');
+        return;
+      }
+
+      try {
+        await createStudentInquiry({ attemptId, subject, studentMessage });
+        toast.success('تم إرسال استفسارك بنجاح إلى المعلم.');
+        closeInquiryModal();
+        await loadInquiries();
+      } catch (err) {
+        toast.error(err.message || 'فشل إرسال الاستفسار.');
+      }
+    });
+
+    // Tab Navigation Logic
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const target = btn.dataset.tab;
+        document.getElementById(target)?.classList.add('active');
+      });
+    });
+
+    // Manual Exam ID Launcher
+    document.getElementById('btn-start-manual-exam')?.addEventListener('click', () => {
+      const val = document.getElementById('manual-exam-id')?.value?.trim();
+      const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!val) {
+        toast.warning('يرجى إدخال معرف الاختبار (UUID).');
+        return;
+      }
+      if (!UUID_REGEX.test(val)) {
+        toast.error('صيغة معرف الاختبار غير صالحة (يجب أن يكون بصيغة UUID معتمدة).');
+        return;
+      }
+      window.location.href = `/student/exam.html?exam_id=${val}`;
+    });
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    initPage();
+  </script>
+</body>
+</html>

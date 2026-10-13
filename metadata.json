@@ -1,0 +1,6 @@
+{
+  "name": "منظومة اختبارات اللغة العربية للناطقين بغيرها",
+  "description": "منصة تقييم واختبارات اللغة العربية للناطقين بغيرها - نظام مستقل للاختبارات وقياس الكفاءة اللغوية",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

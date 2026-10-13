@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة المعلم والمصحح - منظومة اختبارات اللغة العربية</title>
+  <meta name="description" content="لوحة تحكم المعلم والمصحح لمراجعة الاختبارات والاستفسارات">
+
+  <!-- Google Arabic Fonts (Cairo & Tajawal) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- Supabase JS Client via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <link rel="stylesheet" href="/css/components.css">
+</head>
+<body>
+  <!-- Navigation Bar -->
+  <header class="app-navbar">
+    <div class="navbar-container">
+      <a href="/teacher/dashboard.html" class="navbar-brand">
+        <div class="brand-emblem" style="background: linear-gradient(135deg, var(--color-secondary), #1e293b);">ض</div>
+        <div class="brand-text">
+          <span class="brand-title">منظومة تقييم اللغة العربية</span>
+          <span class="brand-subtitle">بوابة المعلم والمصحح الأكاديمي</span>
+        </div>
+      </a>
+      <div class="navbar-actions">
+        <div class="tenant-badge" title="نطاق المؤسسة التعليمية">
+          <span class="tenant-dot"></span>
+          <span>النطاق: </span>
+          <span id="navbar-tenant-id">tenant_default</span>
+        </div>
+        <div class="user-profile-menu">
+          <div class="user-avatar" id="navbar-user-avatar" style="background-color: var(--color-secondary-100); color: var(--color-secondary);">م</div>
+          <div class="user-meta">
+            <span class="user-name" id="navbar-user-name">جاري التحميل...</span>
+            <span class="user-role-label" id="navbar-user-role">معلم / مصحح</span>
+          </div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" id="navbar-logout-btn" title="تسجيل الخروج">
+          خروج
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="app-container">
+    <!-- Header Section -->
+    <div class="page-header">
+      <div class="page-title-group">
+        <h1>لوحة متابعة التصحيح والتقييم</h1>
+        <p>إدارة الاختبارات المكتملة المعلقة وتصحيح الأسئلة المقالية والشفوية والرد على استفسارات الطلاب.</p>
+      </div>
+      <div>
+        <span class="badge badge-primary">صلاحية المعلم المعتمدة</span>
+        <span class="badge badge-success">RLS Enforced</span>
+      </div>
+    </div>
+
+    <!-- Quick Stats Grid -->
+    <div class="grid grid-cols-3 gap-4 mb-6">
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-warning">📝</div>
+        <div class="stat-content">
+          <span class="stat-value" id="stat-pending-reviews">0</span>
+          <span class="stat-label">محاولات مكتملة بانتظار التصحيح</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-secondary">📬</div>
+        <div class="stat-content">
+          <span class="stat-value" id="stat-open-inquiries">0</span>
+          <span class="stat-label">استفسارات طلاب واردة</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-primary">📚</div>
+        <div class="stat-content">
+          <span class="stat-value" id="stat-tenant-exams">0</span>
+          <span class="stat-label">اختبارات المؤسسة المعتمدة</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="tabs-nav">
+      <button type="button" class="tab-btn active" data-tab="tab-reviews">
+        قائمة التصحيح المعلقة
+        <span class="tab-badge" id="badge-reviews-count">0</span>
+      </button>
+      <button type="button" class="tab-btn" data-tab="tab-teacher-inquiries">
+        استفسارات الطلاب
+        <span class="tab-badge" id="badge-inquiries-count">0</span>
+      </button>
+      <button type="button" class="tab-btn" data-tab="tab-exams-overview">
+        اختبارات المؤسسة المعتمدة
+        <span class="tab-badge" id="badge-exams-count">0</span>
+      </button>
+    </div>
+
+    <!-- Tab 1: Pending Reviews Queue -->
+    <section class="tab-pane active" id="tab-reviews">
+      <div class="section-container">
+        <div class="section-header">
+          <h3 class="section-title">محاولات بانتظار تصحيح المعلم</h3>
+          <span class="badge badge-warning">حالة المحاولة: مكتملة (مؤقتة)</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>اسم الطالب</th>
+                <th>عنوان الاختبار</th>
+                <th>رقم المحاولة</th>
+                <th>تاريخ الاكتمال</th>
+                <th>حالة التقييم</th>
+                <th>الإجراء</th>
+              </tr>
+            </thead>
+            <tbody id="reviews-tbody">
+              <tr>
+                <td colspan="6" style="text-align: center; padding: 2rem;">جاري التحميل من الخادم...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 2: Student Inquiries -->
+    <section class="tab-pane" id="tab-teacher-inquiries">
+      <div class="section-container">
+        <div class="section-header">
+          <h3 class="section-title">استفسارات الطلاب الواردة</h3>
+          <span class="badge badge-neutral">نطاق المؤسسة الحالي</span>
+        </div>
+        <div id="teacher-inquiries-list">
+          <div class="empty-state">
+            <div class="empty-icon">💬</div>
+            <div class="empty-title">جاري تحميل الاستفسارات...</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 3: Tenant Exams -->
+    <section class="tab-pane" id="tab-exams-overview">
+      <div class="grid grid-cols-3 gap-6" id="teacher-exams-grid">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+  </main>
+
+  <!-- Respond to Inquiry Modal -->
+  <div class="modal-backdrop" id="respond-modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h4 class="modal-title">الرد الأكاديمي على استفسار الطالب</h4>
+        <button type="button" class="modal-close" id="modal-respond-close">&times;</button>
+      </div>
+      <form id="respond-form">
+        <div class="modal-body">
+          <div style="background-color: var(--color-neutral-50); padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.25rem;">
+            <div style="font-weight: 700; margin-bottom: 0.25rem;" id="modal-inq-subject">موضوع الاستفسار</div>
+            <div style="font-size: 0.875rem; color: var(--text-secondary);" id="modal-inq-message">نص الرسالة...</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;" id="modal-inq-sender">الطالب: ...</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="teacher-response-text">نص إجابة وتوجيه المعلم <span class="required">*</span></label>
+            <textarea id="teacher-response-text" class="form-textarea" rows="4" placeholder="اكتب ردك وتوجيهك للطالب هنا..." required maxlength="5000"></textarea>
+            <div class="form-helper">الحد الأقصى 5000 حرف حسب مواصفة دالة Edge Function المعتمدة.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="modal-respond-cancel">إلغاء</button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-response">إرسال الرد</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <div class="footer-content">
+      <div>منظومة اختبارات اللغة العربية للناطقين بغيرها</div>
+      <div>بوابة المعلم الأكاديمية - صلاحيات مشروطة بقواعد RLS</div>
+    </div>
+  </footer>
+
+  <!-- Page Logic -->
+  <script type="module">
+    import { requireAuth } from '/src/js/services/auth.js';
+    import { initNavbar, formatDate, formatExamType, formatDuration } from '/src/js/app.js';
+    import { fetchTeacherPendingAttempts, fetchTeacherInquiries, fetchTeacherTenantExams, respondToStudentInquiry } from '/src/js/services/examApi.js';
+    import { toast } from '/src/js/components/toast.js';
+
+    let currentAuth = null;
+    let selectedInquiryToRespond = null;
+
+    async function initPage() {
+      try {
+        currentAuth = await requireAuth(['teacher', 'admin']);
+        if (!currentAuth) return;
+
+        initNavbar(currentAuth);
+        await loadDashboardData();
+      } catch (err) {
+        toast.error(err.message || 'فشل تهيئة لوحة تحكم المعلم.');
+      }
+    }
+
+    async function loadDashboardData() {
+      await Promise.allSettled([
+        loadPendingReviews(),
+        loadInquiries(),
+        loadExams(),
+      ]);
+    }
+
+    // Load Pending Reviews (status === 'completed' AND final_scoring_status === 'provisional')
+    async function loadPendingReviews() {
+      const tbody = document.getElementById('reviews-tbody');
+      const countBadge = document.getElementById('badge-reviews-count');
+      const statPending = document.getElementById('stat-pending-reviews');
+
+      try {
+        const attempts = await fetchTeacherPendingAttempts();
+        countBadge.textContent = attempts.length;
+        statPending.textContent = attempts.length;
+
+        if (attempts.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                لا توجد محاولات مكتملة بانتظار تصحيح المعلم حالياً في هذا النطاق.
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        tbody.innerHTML = attempts.map(attempt => {
+          const studentName = attempt.student?.full_name || attempt.student?.email || `طالب (${attempt.student_id.substring(0, 8)})`;
+          const examTitle = attempt.exam?.title || `اختبار (${attempt.exam_id.substring(0, 8)})`;
+          const pendingCount = attempt.pendingReviewsCount ?? 0;
+
+          return `
+            <tr>
+              <td><b>${escapeHtml(studentName)}</b></td>
+              <td>${escapeHtml(examTitle)}</td>
+              <td>محاولة #${attempt.attempt_number || 1}</td>
+              <td>${formatDate(attempt.completed_at || attempt.started_at)}</td>
+              <td>
+                <span class="badge badge-warning">
+                  ${pendingCount > 0 ? `${pendingCount} عنصر بانتظار التقييم` : 'مكتمل (مؤقت)'}
+                </span>
+              </td>
+              <td>
+                <a href="/teacher/review.html?attempt_id=${attempt.id}" class="btn btn-primary btn-sm">
+                  تصحيح ومراجعة
+                </a>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+      } catch (err) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" style="text-align: center; padding: 2rem; color: var(--color-danger);">
+              ${escapeHtml(err.message || 'فشل جلب قائمة التصحيح المعلقة من الخادم.')}
+            </td>
+          </tr>
+        `;
+        toast.error(err.message || 'فشل جلب قائمة التصحيح المعلقة.');
+      }
+    }
+
+    // Load Student Inquiries
+    async function loadInquiries() {
+      const container = document.getElementById('teacher-inquiries-list');
+      const countBadge = document.getElementById('badge-inquiries-count');
+      const statOpen = document.getElementById('stat-open-inquiries');
+
+      try {
+        const inquiries = await fetchTeacherInquiries();
+        const openCount = inquiries.filter(i => i.status === 'open' || i.status === 'in_progress').length;
+        countBadge.textContent = openCount;
+        statOpen.textContent = openCount;
+
+        if (inquiries.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-icon">💬</div>
+              <div class="empty-title">لا توجد استفسارات واردة من الطلاب</div>
+              <div class="empty-text">ستظهر هنا أي أسئلة يطرحها الطلاب حول محاولاتهم فور إرسالها.</div>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = inquiries.map(inq => {
+          const isAnswered = inq.status === 'answered' && Boolean(inq.teacher_response);
+          const studentName = inq.profiles?.full_name || inq.profiles?.email || 'طالب';
+
+          return `
+            <div style="border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1rem; background-color: var(--color-neutral-25);">
+              <div class="flex items-center justify-between mb-2">
+                <div>
+                  <h4 style="font-size: 1rem; margin: 0; display: inline-block;">${escapeHtml(inq.subject)}</h4>
+                  <span style="font-size: 0.8125rem; color: var(--text-muted); margin-right: 0.5rem;">من: <b>${escapeHtml(studentName)}</b></span>
+                </div>
+                <span class="badge ${isAnswered ? 'badge-success' : 'badge-warning'}">
+                  ${isAnswered ? 'تمت الإجابة' : 'بانتظار الرد'}
+                </span>
+              </div>
+              <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+                ${escapeHtml(inq.student_message)}
+              </p>
+              ${isAnswered ? `
+                <div style="padding: 0.875rem; background-color: var(--color-primary-50); border-right: 3px solid var(--color-primary); border-radius: var(--radius-sm); font-size: 0.875rem; color: var(--color-primary-900); margin-bottom: 0.5rem;">
+                  <b>ردك: </b>${escapeHtml(inq.teacher_response)}
+                </div>
+              ` : `
+                <button type="button" class="btn btn-outline-primary btn-sm btn-reply-inquiry" 
+                  data-id="${inq.id}" 
+                  data-subject="${escapeHtml(inq.subject)}" 
+                  data-message="${escapeHtml(inq.student_message)}"
+                  data-student="${escapeHtml(studentName)}">
+                  كتابة رد على الطالب
+                </button>
+              `}
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+                تاريخ الاستفسار: ${formatDate(inq.created_at)}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        container.querySelectorAll('.btn-reply-inquiry').forEach(btn => {
+          btn.addEventListener('click', () => {
+            openRespondModal({
+              id: btn.dataset.id,
+              subject: btn.dataset.subject,
+              message: btn.dataset.message,
+              student: btn.dataset.student,
+            });
+          });
+        });
+
+      } catch (err) {
+        container.innerHTML = `
+          <div class="alert alert-danger">
+            ${escapeHtml(err.message || 'فشل جلب استفسارات الطلاب من الخادم.')}
+          </div>
+        `;
+        toast.error(err.message || 'فشل جلب استفسارات الطلاب.');
+      }
+    }
+
+    // Load Tenant Exams (status === 'approved')
+    async function loadExams() {
+      const grid = document.getElementById('teacher-exams-grid');
+      const countBadge = document.getElementById('badge-exams-count');
+      const statExams = document.getElementById('stat-tenant-exams');
+
+      try {
+        const exams = await fetchTeacherTenantExams();
+        countBadge.textContent = exams.length;
+        statExams.textContent = exams.length;
+
+        if (exams.length === 0) {
+          grid.innerHTML = '<p style="grid-column: 1 / -1; color: var(--text-muted); text-align: center; padding: 2rem;">لا توجد اختبارات معتمدة في نطاق المؤسسة حالياً.</p>';
+          return;
+        }
+
+        grid.innerHTML = exams.map(exam => `
+          <div class="exam-card">
+            <div>
+              <div class="exam-card-header">
+                <h4 class="exam-title">${escapeHtml(exam.title)}</h4>
+                <span class="badge badge-secondary">${formatExamType(exam.exam_type)}</span>
+              </div>
+              <div class="exam-meta-grid">
+                <div class="exam-meta-item">
+                  <span class="exam-meta-label">المدة:</span>
+                  <span class="exam-meta-value">${formatDuration(exam.duration_minutes)}</span>
+                </div>
+                <div class="exam-meta-item">
+                  <span class="exam-meta-label">نسبة الاجتياز:</span>
+                  <span class="exam-meta-value">${exam.passing_score_percentage}%</span>
+                </div>
+              </div>
+            </div>
+            <div class="exam-card-footer">
+              <span class="badge badge-neutral">النطاق: ${escapeHtml(exam.external_tenant_id)}</span>
+              <span class="badge badge-success">حالة: معتمد (approved)</span>
+            </div>
+          </div>
+        `).join('');
+
+      } catch (err) {
+        grid.innerHTML = `
+          <div class="alert alert-danger" style="grid-column: 1 / -1;">
+            ${escapeHtml(err.message || 'فشل جلب اختبارات المؤسسة من الخادم.')}
+          </div>
+        `;
+        toast.error(err.message || 'فشل جلب اختبارات المؤسسة.');
+      }
+    }
+
+    // Response Modal Handling
+    const respondModal = document.getElementById('respond-modal');
+    const modalClose = document.getElementById('modal-respond-close');
+    const modalCancel = document.getElementById('modal-respond-cancel');
+    const respondForm = document.getElementById('respond-form');
+
+    function openRespondModal(inq) {
+      selectedInquiryToRespond = inq;
+      document.getElementById('modal-inq-subject').textContent = inq.subject;
+      document.getElementById('modal-inq-message').textContent = inq.message;
+      document.getElementById('modal-inq-sender').textContent = `الطالب: ${inq.student}`;
+      respondModal.classList.add('is-open');
+    }
+
+    function closeRespondModal() {
+      respondModal.classList.remove('is-open');
+      respondForm.reset();
+      selectedInquiryToRespond = null;
+    }
+
+    modalClose.addEventListener('click', closeRespondModal);
+    modalCancel.addEventListener('click', closeRespondModal);
+
+    respondForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!selectedInquiryToRespond) return;
+
+      const teacherResponse = document.getElementById('teacher-response-text').value;
+      const submitBtn = document.getElementById('btn-submit-response');
+
+      try {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'جاري الإرسال...';
+
+        await respondToStudentInquiry(selectedInquiryToRespond.id, teacherResponse);
+        toast.success('تم تسجيل ردك بنجاح وحفظه في سجل الاستفسار.');
+        closeRespondModal();
+        await loadInquiries();
+      } catch (err) {
+        toast.error(`فشل إرسال الرد: ${err.message}`);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'إرسال الرد';
+      }
+    });
+
+    // Tab Navigation Logic
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const target = btn.dataset.tab;
+        document.getElementById(target)?.classList.add('active');
+      });
+    });
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    initPage();
+  </script>
+</body>
+</html>

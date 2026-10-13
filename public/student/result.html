@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>نتيجة الاختبار والتحليل التربوي - منظومة تقييم اللغة العربية</title>
+  <meta name="description" content="واجهة استعراض النتيجة الرسمية المعتمدة والتحليل التربوي الذكي">
+
+  <!-- Google Arabic Fonts (Cairo & Tajawal) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- Supabase JS Client via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <link rel="stylesheet" href="/css/components.css">
+
+  <style>
+    .result-container {
+      max-width: 960px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+    }
+    .result-hero-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 2.5rem 2rem;
+      margin-bottom: 2rem;
+      box-shadow: var(--shadow-md);
+      text-align: center;
+    }
+    .score-circle-hero {
+      width: 130px;
+      height: 130px;
+      border-radius: var(--radius-full);
+      background: linear-gradient(135deg, var(--color-primary-50), var(--color-primary-100));
+      border: 3.5px solid var(--color-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 1.5rem auto;
+    }
+    .score-circle-value {
+      font-size: 2.25rem;
+      font-weight: 800;
+      color: var(--color-primary);
+      line-height: 1;
+    }
+    .score-circle-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-top: 0.25rem;
+    }
+    .stats-card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+      text-align: right;
+    }
+    .stat-box-item {
+      background-color: var(--color-neutral-50);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+    }
+    .stat-box-label {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+    .stat-box-value {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--color-neutral-900);
+    }
+    .placement-banner {
+      background: linear-gradient(135deg, #f0fdf4, #e0f2fe);
+      border: 1.5px solid #bae6fd;
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .ai-analysis-card {
+      background-color: var(--bg-surface);
+      border: 1.5px solid #e2e8f0;
+      border-radius: var(--radius-xl);
+      padding: 2.5rem 2rem;
+      margin-bottom: 2rem;
+      box-shadow: var(--shadow-sm);
+    }
+    .ai-header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+      color: #6b21a8;
+      padding: 0.375rem 0.875rem;
+      border-radius: var(--radius-full);
+      font-size: 0.8125rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .analysis-section {
+      margin-top: 1.75rem;
+      padding-top: 1.5rem;
+      border-top: 1px dashed var(--border-subtle);
+    }
+    .analysis-section-title {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--color-neutral-900);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .analysis-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .analysis-list-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      background-color: var(--color-neutral-50);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.875rem 1rem;
+      font-size: 0.9375rem;
+      line-height: 1.6;
+    }
+    .analysis-list-item.is-strength {
+      border-right: 4px solid var(--color-success);
+    }
+    .analysis-list-item.is-weakness {
+      border-right: 4px solid var(--color-warning);
+    }
+    .analysis-list-item.is-recommendation {
+      border-right: 4px solid var(--color-primary);
+    }
+    .skill-card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+    .skill-analysis-item {
+      background-color: #f8fafc;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.25rem;
+    }
+    .common-error-card {
+      background-color: #fff1f2;
+      border: 1px solid #fecdd3;
+      border-radius: var(--radius-md);
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.75rem;
+    }
+  </style>
+</head>
+<body style="background-color: var(--color-neutral-50); min-height: 100vh;">
+
+  <!-- Application Navbar -->
+  <header class="app-navbar">
+    <div class="navbar-container">
+      <a href="/student/dashboard.html" class="navbar-brand">
+        <div class="brand-emblem">ض</div>
+        <div class="brand-text">
+          <span class="brand-title">منظومة تقييم اللغة العربية</span>
+          <span class="brand-subtitle">بوابة الطالب - نتيجة الاختبار</span>
+        </div>
+      </a>
+      <div class="navbar-actions">
+        <a href="/student/dashboard.html" class="btn btn-outline btn-sm">
+          ← لوحة التحكم
+        </a>
+        <div class="user-profile-menu">
+          <div class="user-avatar" id="navbar-user-avatar">ط</div>
+          <div class="user-meta">
+            <span class="user-name" id="navbar-user-name">جاري التحميل...</span>
+            <span class="user-role-label">طالب</span>
+          </div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" id="navbar-logout-btn">خروج</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="result-container">
+
+    <!-- Loading State -->
+    <div id="view-loading" class="empty-state" style="padding: 5rem 1.5rem;">
+      <div class="spinner" style="width: 3rem; height: 3rem; margin-bottom: 1.5rem;"></div>
+      <h3 class="empty-title">جاري تحميل النتيجة الرسمية من الخادم...</h3>
+      <p class="empty-text">يتم الآن التحقق من صحة واعتماد النتيجة عبر محرك التقييم المركزي.</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="view-error" class="empty-state" style="display: none; padding: 4rem 1.5rem;">
+      <div class="empty-icon" style="color: var(--color-danger); background-color: var(--color-danger-bg);">⚠️</div>
+      <h3 class="empty-title" id="error-title">تعذر عرض النتيجة</h3>
+      <p class="empty-text" id="error-message">حدث خطأ أثناء محاولة جلب النتيجة.</p>
+      <div class="mt-4">
+        <a href="/student/dashboard.html" class="btn btn-primary">
+          العودة إلى لوحة تحكم الطالب
+        </a>
+      </div>
+    </div>
+
+    <!-- Provisional Result State (Awaiting Teacher Review) -->
+    <div id="view-provisional" class="empty-state" style="display: none; padding: 4rem 1.5rem; background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl);">
+      <div class="empty-icon" style="color: var(--color-warning); background-color: var(--color-warning-bg);">⏳</div>
+      <h2 style="font-size: 1.75rem; font-weight: 800; color: var(--color-neutral-900); margin-top: 1rem;">
+        النتيجة النهائية قيد المراجعة والاعتماد
+      </h2>
+      <div style="margin: 1rem auto; max-width: 650px;">
+        <div class="badge badge-warning" style="font-size: 0.9375rem; padding: 0.5rem 1rem; margin-bottom: 1rem;">
+          حالة النتيجة: مبدئية (Provisional)
+        </div>
+        <p style="font-size: 1.0625rem; color: var(--color-neutral-800); line-height: 1.8;">
+          تم تسجيل وتسليم إجاباتك بنجاح واحتساب درجات الأسئلة المؤتمتة. يتضمن هذا الاختبار أسئلة تتطلب تصحيحاً وتقييماً يدوياً من قِبل المعلم المختص (التعبير الكتابي / المحادثة الشفوية).
+        </p>
+        <div class="alert alert-info" style="margin-top: 1.5rem; text-align: right;">
+          ستظهر النتيجة الرسمية النهائية المعتمدة وتحديد المستوى والتحليل التربوي الذكي فور اعتماد ومصادقة المعلم على التقييم.
+        </div>
+      </div>
+      <div class="mt-4">
+        <a href="/student/dashboard.html" class="btn btn-primary">
+          العودة إلى لوحة تحكم الطالب
+        </a>
+      </div>
+    </div>
+
+    <!-- Expired Result State -->
+    <div id="view-expired" class="empty-state" style="display: none; padding: 4rem 1.5rem; background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl);">
+      <div class="empty-icon" style="color: var(--color-danger); background-color: var(--color-danger-bg);">⏱</div>
+      <h2 style="font-size: 1.75rem; font-weight: 800; color: var(--color-neutral-900); margin-top: 1rem;">
+        انتهت صلاحية المحاولة
+      </h2>
+      <p style="font-size: 1.0625rem; color: var(--text-secondary); max-width: 600px; margin: 1rem auto 1.5rem;">
+        لقد انتهت المدة الزمنية الرسمية المحددة لهذه المحاولة على الخادم. تم إغلاق استقبال الإجابات وتوثيق انتهاء الجلسة.
+      </p>
+      <div class="mt-4">
+        <a href="/student/dashboard.html" class="btn btn-primary">
+          العودة إلى لوحة تحكم الطالب
+        </a>
+      </div>
+    </div>
+
+    <!-- Official Final Result View -->
+    <div id="view-official-final" style="display: none;">
+
+      <!-- Hero Result Card -->
+      <div class="result-hero-card">
+        <span class="badge badge-success" style="font-size: 0.9375rem; padding: 0.5rem 1.25rem;">
+          النتيجة الرسمية النهائية المعتمدة
+        </span>
+
+        <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--color-neutral-900); margin-top: 1rem;" id="res-exam-title">
+          اختبار اللغة العربية
+        </h1>
+        <div style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.25rem;">
+          تاريخ الاعتماد: <span id="res-completed-at">--</span>
+        </div>
+
+        <!-- Score Circle -->
+        <div class="score-circle-hero">
+          <div class="score-circle-value" id="res-percentage-value">--%</div>
+          <div class="score-circle-label">النسبة المئوية</div>
+        </div>
+
+        <!-- Pass / Fail Badge -->
+        <div style="margin-bottom: 1.5rem;">
+          <span class="badge" id="res-pass-badge" style="font-size: 1.125rem; padding: 0.5rem 1.5rem;">
+            --
+          </span>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-card-grid">
+          <div class="stat-box-item">
+            <div class="stat-box-label">الدرجة الإجمالية المحتسبة</div>
+            <div class="stat-box-value" id="res-total-score">--</div>
+          </div>
+          <div class="stat-box-item">
+            <div class="stat-box-label">حالة النتيجة</div>
+            <div class="stat-box-value" style="color: var(--color-success);">معتمدة ونهائية (Official)</div>
+          </div>
+          <div class="stat-box-item">
+            <div class="stat-box-label">حالة التسكين اللغوي</div>
+            <div class="stat-box-value" id="res-placement-status-text">--</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Placement Level Banner -->
+      <div class="placement-banner" id="res-placement-banner">
+        <div>
+          <span style="font-size: 0.8125rem; font-weight: 700; color: #0369a1; text-transform: uppercase;">
+            تحديد المستوى المعياري (CEFR)
+          </span>
+          <h3 style="font-size: 1.375rem; font-weight: 800; color: var(--color-neutral-900); margin-top: 0.25rem;" id="res-placement-level-title">
+            المستوى: --
+          </h3>
+          <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem;" id="res-placement-desc">
+            تم تسكينك في هذا المستوى بناءً على القواعد المعيارية المعتمدة للمنظومة.
+          </p>
+        </div>
+        <div>
+          <span class="badge badge-primary" id="res-placement-code-badge" style="font-size: 1.25rem; padding: 0.625rem 1.25rem;">
+            --
+          </span>
+        </div>
+      </div>
+
+      <!-- Gemini Pedagogical Analysis Section -->
+      <div class="ai-analysis-card" id="gemini-analysis-container">
+        <div class="ai-header-badge">
+          <span>✨</span> <span>التحليل التشخيصي والتربوي الذكي (Gemini Pedagogical Analysis)</span>
+        </div>
+        <h2 style="font-size: 1.375rem; font-weight: 800; color: var(--color-neutral-900); margin-top: 0.5rem;">
+          التقرير التشخيصي والتوجيه التعليمي للطالب
+        </h2>
+        <p style="font-size: 0.9375rem; color: var(--text-secondary); margin-top: 0.25rem;">
+          تحليل تربوي مدعوم بنموذج الذكاء الاصطناعي لتقديم قراءة شاملة في الأداء اللغوي وخطوات التطوير العملية (دون أي تأثير على الدرجة الرسمية).
+        </p>
+
+        <!-- Gemini Loading / Polling State -->
+        <div id="gemini-loading" style="padding: 2.5rem 1rem; text-align: center;">
+          <div class="spinner" style="width: 2.5rem; height: 2.5rem; margin: 0 auto 1rem; color: #7c3aed;"></div>
+          <div style="font-weight: 700; color: var(--color-neutral-800);" id="gemini-loading-text">
+            جاري إعداد وتحليل الأداء اللغوي بواسطة المحرك التربوي...
+          </div>
+          <div style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.25rem;">
+            يتم فحص المهارات وتشخيص الأخطاء الشائعة وبناء التوصيات المخصصة لك.
+          </div>
+        </div>
+
+        <!-- Gemini Error / Fallback State -->
+        <div id="gemini-error" class="alert alert-warning" style="display: none; margin-top: 1.5rem; text-align: right;">
+          <div style="font-weight: 700; margin-bottom: 0.25rem;">تعذر توليد التحليل التربوي الذكي حالياً</div>
+          <div id="gemini-error-message" style="font-size: 0.875rem;">
+            لم نتمكن من استلام التحليل التعليمي في الوقت الحالي. نتيجتك الرسمية المعتمدة أعلاه سارية وموثقة بالكامل.
+          </div>
+          <div style="margin-top: 0.75rem;">
+            <button type="button" class="btn btn-outline btn-sm" id="btn-retry-gemini">إعادة محاولة التحليل</button>
+          </div>
+        </div>
+
+        <!-- Gemini Content View (Structured Pedagogical Data) -->
+        <div id="gemini-content" style="display: none;">
+
+          <!-- Student Summary -->
+          <div class="analysis-section" style="border-top: none; padding-top: 0.5rem;">
+            <div class="analysis-section-title">
+              <span>📋</span> <span>الملخص العام لأداء الطالب:</span>
+            </div>
+            <div style="background-color: #faf5ff; border: 1px solid #f3e8ff; border-radius: var(--radius-md); padding: 1.25rem; line-height: 1.8; color: #3b0764; font-size: 1rem;" id="gemini-student-summary">
+              --
+            </div>
+          </div>
+
+          <!-- Strengths -->
+          <div class="analysis-section">
+            <div class="analysis-section-title">
+              <span>💪</span> <span>نقاط القوة اللغوية البارزة:</span>
+            </div>
+            <ul class="analysis-list" id="gemini-strengths-list"></ul>
+          </div>
+
+          <!-- Weaknesses -->
+          <div class="analysis-section">
+            <div class="analysis-section-title">
+              <span>🎯</span> <span>مجالات تحتاج إلى تركيز وتطوير:</span>
+            </div>
+            <ul class="analysis-list" id="gemini-weaknesses-list"></ul>
+          </div>
+
+          <!-- Skill Analysis -->
+          <div class="analysis-section">
+            <div class="analysis-section-title">
+              <span>📊</span> <span>تحليل المهارات اللغوية التخصصية:</span>
+            </div>
+            <div class="skill-card-grid" id="gemini-skills-grid"></div>
+          </div>
+
+          <!-- Common Errors -->
+          <div class="analysis-section" id="gemini-errors-section">
+            <div class="analysis-section-title">
+              <span>⚠️</span> <span>تشخيص الأخطاء الشائعة وطرق تصحيحها:</span>
+            </div>
+            <div id="gemini-errors-list"></div>
+          </div>
+
+          <!-- Learning Recommendations -->
+          <div class="analysis-section">
+            <div class="analysis-section-title">
+              <span>🚀</span> <span>خطة العمل والتوصيات التعليمية المقترحة:</span>
+            </div>
+            <ul class="analysis-list" id="gemini-recommendations-list"></ul>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Action Footer -->
+      <div class="flex items-center justify-center gap-3" style="margin-bottom: 4rem;">
+        <a href="/student/dashboard.html" class="btn btn-primary btn-lg">
+          العودة إلى لوحة تحكم الطالب
+        </a>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <div class="footer-content">
+      <div>منظومة تقييم واختبارات اللغة العربية للناطقين بغيرها</div>
+      <div>النتائج الرسمية والتحليل التربوي المعتمد</div>
+    </div>
+  </footer>
+
+  <!-- Script Logic -->
+  <script type="module">
+    import { requireAuth } from '/src/js/services/auth.js';
+    import { initNavbar, formatDate } from '/src/js/app.js';
+    import { 
+      getStudentOfficialResult, 
+      fetchAttemptById, 
+      generatePedagogicalAnalysis 
+    } from '/src/js/services/examApi.js';
+    import { toast } from '/src/js/components/toast.js';
+
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const GEMINI_POLL_INTERVAL_MS = 3000;
+    const GEMINI_MAX_POLL_DURATION_MS = 60000;
+
+    let currentAuth = null;
+    let attemptId = null;
+    let isPollingGemini = false;
+    let geminiPollTimer = null;
+    let geminiPollStartTime = null;
+
+    // View Elements
+    const viewLoading = document.getElementById('view-loading');
+    const viewError = document.getElementById('view-error');
+    const viewProvisional = document.getElementById('view-provisional');
+    const viewExpired = document.getElementById('view-expired');
+    const viewOfficialFinal = document.getElementById('view-official-final');
+
+    async function initPage() {
+      // 1. Authorize Student
+      try {
+        currentAuth = await requireAuth(['student', 'admin']);
+        if (!currentAuth) return;
+        initNavbar(currentAuth);
+      } catch (authErr) {
+        showError('فشل التحقق من هوية الطالب', authErr.message || 'يرجى تسجيل الدخول بحساب الطالب أولاً.');
+        return;
+      }
+
+      // 2. Validate URL ?attempt_id=
+      const urlParams = new URLSearchParams(window.location.search);
+      const rawAttemptId = urlParams.get('attempt_id');
+
+      if (!rawAttemptId || !rawAttemptId.trim()) {
+        showError('معرف المحاولة مفقود', 'لم يتم تحديد معرف المحاولة في عنوان الصفحة (?attempt_id=). يرجى فتح النتيجة من لوحة التحكم.');
+        return;
+      }
+
+      attemptId = rawAttemptId.trim();
+      if (!UUID_REGEX.test(attemptId)) {
+        showError('معرف المحاولة غير صالح', 'صيغة معرف المحاولة المحدد في العنوان غير صحيحة (يجب أن يكون بصيغة UUID معتمدة).');
+        return;
+      }
+
+      // 3. Load Result Flow
+      await loadResultData();
+    }
+
+    async function loadResultData() {
+      try {
+        viewLoading.style.display = 'block';
+        viewError.style.display = 'none';
+        viewProvisional.style.display = 'none';
+        viewExpired.style.display = 'none';
+        viewOfficialFinal.style.display = 'none';
+
+        // Step A: Inspect the student's attempt record under RLS
+        const attempt = await fetchAttemptById(attemptId);
+        if (!attempt) {
+          showError('المحاولة غير موجودة', 'لم يتم العثور على محاولة الاختبار المحددة أو ليس لديك صلاحية للاطلاع عليها.');
+          return;
+        }
+
+        // Step B: Check Attempt Status
+        if (attempt.status === 'expired' && attempt.final_scoring_status !== 'official_final') {
+          viewLoading.style.display = 'none';
+          viewExpired.style.display = 'block';
+          return;
+        }
+
+        if (attempt.final_scoring_status === 'provisional') {
+          viewLoading.style.display = 'none';
+          viewProvisional.style.display = 'block';
+          return;
+        }
+
+        // Step C: If official_final, fetch authoritative result via Edge Function
+        if (attempt.final_scoring_status === 'official_final') {
+          try {
+            const officialResult = await getStudentOfficialResult(attemptId);
+            renderOfficialFinalView(officialResult);
+
+            // Step D: Trigger Gemini Pedagogical Feedback (only after official_final is confirmed)
+            await requestGeminiAnalysis();
+          } catch (officialErr) {
+            if (officialErr.status === 409 || officialErr.code === 'result_not_finalized' || officialErr.code === 'attempt_not_finalized') {
+              viewLoading.style.display = 'none';
+              viewProvisional.style.display = 'block';
+              return;
+            }
+            throw officialErr;
+          }
+          return;
+        }
+
+        // Fallback for other non-final states
+        viewLoading.style.display = 'none';
+        viewProvisional.style.display = 'block';
+
+      } catch (err) {
+        showError('تعذر جلب نتيجة الاختبار', err.message || 'حدث خطأ أثناء الاتصال بخادم النتائج.');
+      }
+    }
+
+    function renderOfficialFinalView(res) {
+      viewLoading.style.display = 'none';
+      viewProvisional.style.display = 'none';
+      viewExpired.style.display = 'none';
+      viewError.style.display = 'none';
+      viewOfficialFinal.style.display = 'block';
+
+      // Title & Date
+      document.getElementById('res-exam-title').textContent = res.exam_title || 'اختبار اللغة العربية';
+      document.getElementById('res-completed-at').textContent = res.completed_at ? formatDate(res.completed_at) : 'معتمد';
+
+      // Score Value & Total
+      const percentage = res.percentage_score != null ? `${Math.round(res.percentage_score)}%` : '--%';
+      document.getElementById('res-percentage-value').textContent = percentage;
+      document.getElementById('res-total-score').textContent = res.total_score != null ? `${res.total_score} درجة (${percentage})` : '--';
+
+      // Pass / Fail Status
+      const passBadge = document.getElementById('res-pass-badge');
+      if (res.is_passed === true) {
+        passBadge.className = 'badge badge-success';
+        passBadge.textContent = 'ناجح ومجتاز للاختبار ✓';
+      } else if (res.is_passed === false) {
+        passBadge.className = 'badge badge-danger';
+        passBadge.textContent = 'لم يجتز درجة النجاح ✗';
+      } else {
+        passBadge.className = 'badge badge-neutral';
+        passBadge.textContent = 'تم إتمام التقييم';
+      }
+
+      // Placement Level
+      const placementBanner = document.getElementById('res-placement-banner');
+      const placementTitle = document.getElementById('res-placement-level-title');
+      const placementDesc = document.getElementById('res-placement-desc');
+      const placementCodeBadge = document.getElementById('res-placement-code-badge');
+      const placementStatusText = document.getElementById('res-placement-status-text');
+
+      const placementStatus = res.placement_status || 'not_applicable';
+
+      if (placementStatus === 'assigned' && res.placement_level) {
+        placementTitle.textContent = `المستوى المعتمد: ${res.placement_level.name_ar || res.placement_level.code}`;
+        placementCodeBadge.textContent = res.placement_level.code || '--';
+        placementDesc.textContent = 'تم تحديد وتسكين مستواك المعياري في اللغة العربية بناءً على أدائك في الاختبار.';
+        placementStatusText.textContent = `معتمد (${res.placement_level.code})`;
+      } else if (placementStatus === 'review_required') {
+        placementTitle.textContent = 'تحديد المستوى: يتطلب مراجعة إضافية';
+        placementCodeBadge.textContent = 'قيد المراجعة';
+        placementCodeBadge.className = 'badge badge-warning';
+        placementDesc.textContent = 'النتيجة الرسمية معتمدة، ولكن تحديد المستوى المعياري النهائي يتطلب تدقيقاً إضافياً من الإدارة الأكاديمية.';
+        placementStatusText.textContent = 'يتطلب مراجعة إضافية';
+      } else {
+        placementTitle.textContent = 'تسكين المستوى: غير محدد';
+        placementCodeBadge.textContent = '--';
+        placementDesc.textContent = 'هذا الاختبار لا يتضمن قاعدة تسكين معيارية مباشرة.';
+        placementStatusText.textContent = 'غير مطبق';
+      }
+    }
+
+    // =========================================================================
+    // Gemini Pedagogical Feedback Integration
+    // =========================================================================
+    async function requestGeminiAnalysis() {
+      const geminiLoading = document.getElementById('gemini-loading');
+      const geminiError = document.getElementById('gemini-error');
+      const geminiContent = document.getElementById('gemini-content');
+
+      geminiLoading.style.display = 'block';
+      geminiError.style.display = 'none';
+      geminiContent.style.display = 'none';
+
+      try {
+        const response = await generatePedagogicalAnalysis(attemptId);
+        handleGeminiResponse(response);
+      } catch (err) {
+        console.warn('Gemini analysis call error:', err);
+        // Do NOT fail the official score!
+        showGeminiError(err.message || 'تعذر إعداد التحليل التعليمي حالياً.');
+      }
+    }
+
+    function handleGeminiResponse(response) {
+      const geminiLoading = document.getElementById('gemini-loading');
+      const geminiContent = document.getElementById('gemini-content');
+
+      if (!response) {
+        showGeminiError('استجابة غير متوقعة من خدمة التحليل التربوي.');
+        return;
+      }
+
+      if (response.status === 'completed' && response.analysis) {
+        stopGeminiPolling();
+        geminiLoading.style.display = 'none';
+        renderGeminiAnalysis(response.analysis);
+        geminiContent.style.display = 'block';
+        return;
+      }
+
+      if (response.status === 'pending') {
+        // Start polling safely
+        startGeminiPolling();
+        return;
+      }
+
+      showGeminiError(response.message || 'لم تكتمل عملية التحليل التربوي بنجاح.');
+    }
+
+    function startGeminiPolling() {
+      if (isPollingGemini) return;
+      isPollingGemini = true;
+      geminiPollStartTime = Date.now();
+
+      document.getElementById('gemini-loading-text').textContent = 'جاري متابعة إعداد التحليل التربوي الذكي...';
+
+      geminiPollTimer = setInterval(async () => {
+        // Enforce maximum poll duration (60s)
+        if (Date.now() - geminiPollStartTime > GEMINI_MAX_POLL_DURATION_MS) {
+          stopGeminiPolling();
+          showGeminiError('استغرق إعداد التحليل التربوي وقتاً أطول من المتوقع. يمكنك النقر على إعادة المحاولة.');
+          return;
+        }
+
+        try {
+          const res = await generatePedagogicalAnalysis(attemptId);
+          if (res.status === 'completed' && res.analysis) {
+            stopGeminiPolling();
+            document.getElementById('gemini-loading').style.display = 'none';
+            renderGeminiAnalysis(res.analysis);
+            document.getElementById('gemini-content').style.display = 'block';
+          } else if (res.status !== 'pending') {
+            stopGeminiPolling();
+            showGeminiError(res.message || 'تعذر استكمال التحليل.');
+          }
+        } catch (e) {
+          stopGeminiPolling();
+          showGeminiError(e.message || 'حدث خطأ أثناء الاستعلام عن التحليل.');
+        }
+      }, GEMINI_POLL_INTERVAL_MS);
+    }
+
+    function stopGeminiPolling() {
+      isPollingGemini = false;
+      if (geminiPollTimer) {
+        clearInterval(geminiPollTimer);
+        geminiPollTimer = null;
+      }
+    }
+
+    function renderGeminiAnalysis(analysis) {
+      // 1. Student Summary
+      document.getElementById('gemini-student-summary').textContent = analysis.student_summary || 'تحليل لغوي دقيق وشامل لأدائك في الاختبار.';
+
+      // 2. Strengths
+      const strengthsList = document.getElementById('gemini-strengths-list');
+      strengthsList.innerHTML = (analysis.strengths || []).map(str => `
+        <li class="analysis-list-item is-strength">
+          <span style="color: var(--color-success); font-weight: 700;">✓</span>
+          <span>${escapeHtml(str)}</span>
+        </li>
+      `).join('');
+
+      // 3. Weaknesses
+      const weaknessesList = document.getElementById('gemini-weaknesses-list');
+      weaknessesList.innerHTML = (analysis.weaknesses || []).map(w => `
+        <li class="analysis-list-item is-weakness">
+          <span style="color: var(--color-warning); font-weight: 700;">▲</span>
+          <span>${escapeHtml(w)}</span>
+        </li>
+      `).join('');
+
+      // 4. Skill Analysis
+      const skillsGrid = document.getElementById('gemini-skills-grid');
+      skillsGrid.innerHTML = (analysis.skill_analysis || []).map(sk => `
+        <div class="skill-analysis-item">
+          <div class="flex items-center justify-between mb-2">
+            <span style="font-weight: 700; color: var(--color-neutral-900);">${escapeHtml(sk.skill_name_ar)}</span>
+            <span class="badge badge-primary">${escapeHtml(sk.level_assessment)}</span>
+          </div>
+          <p style="font-size: 0.875rem; color: var(--color-neutral-800); line-height: 1.6; margin: 0;">
+            ${escapeHtml(sk.feedback)}
+          </p>
+        </div>
+      `).join('');
+
+      // 5. Common Errors
+      const errorsSection = document.getElementById('gemini-errors-section');
+      const errorsList = document.getElementById('gemini-errors-list');
+      if (analysis.common_errors && analysis.common_errors.length > 0) {
+        errorsSection.style.display = 'block';
+        errorsList.innerHTML = analysis.common_errors.map(err => `
+          <div class="common-error-card">
+            <div style="font-weight: 700; color: #9f1239; margin-bottom: 0.25rem;">
+              فئة الخطأ: ${escapeHtml(err.error_category)}
+            </div>
+            <div style="font-size: 0.875rem; color: var(--color-neutral-900); margin-bottom: 0.5rem;">
+              ${escapeHtml(err.description)}
+            </div>
+            <div style="font-size: 0.8125rem; color: #881337; font-weight: 600;">
+              💡 التوجيه والتصويب: ${escapeHtml(err.correction_advice)}
+            </div>
+          </div>
+        `).join('');
+      } else {
+        errorsSection.style.display = 'none';
+      }
+
+      // 6. Learning Recommendations
+      const recList = document.getElementById('gemini-recommendations-list');
+      recList.innerHTML = (analysis.learning_recommendations || []).map(rec => `
+        <li class="analysis-list-item is-recommendation">
+          <span style="color: var(--color-primary); font-weight: 700;">★</span>
+          <span>${escapeHtml(rec)}</span>
+        </li>
+      `).join('');
+    }
+
+    function showGeminiError(message) {
+      document.getElementById('gemini-loading').style.display = 'none';
+      document.getElementById('gemini-content').style.display = 'none';
+      const errBox = document.getElementById('gemini-error');
+      document.getElementById('gemini-error-message').textContent = message;
+      errBox.style.display = 'block';
+    }
+
+    document.getElementById('btn-retry-gemini').addEventListener('click', () => {
+      requestGeminiAnalysis();
+    });
+
+    function showError(title, message) {
+      viewLoading.style.display = 'none';
+      viewOfficialFinal.style.display = 'none';
+      viewProvisional.style.display = 'none';
+      viewExpired.style.display = 'none';
+      document.getElementById('error-title').textContent = title;
+      document.getElementById('error-message').textContent = message;
+      viewError.style.display = 'block';
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Run Initialization
+    initPage();
+  </script>
+</body>
+</html>
